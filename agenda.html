@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agenda Empresarial</title>
+  <link rel="stylesheet" href="agenda.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+  <div class="app">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+
+      <div class="sidebar-header">
+        <div class="logo-dot" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <div>
+          <div class="app-name">Agenda</div>
+          <div class="app-sub">Mi espacio de trabajo</div>
+        </div>
+      </div>
+
+      <!-- Mini calendario -->
+      <div class="mini-cal">
+        <div class="cal-nav">
+          <button id="prev-month" aria-label="Mes anterior">&#8249;</button>
+          <span id="cal-month-label"></span>
+          <button id="next-month" aria-label="Mes siguiente">&#8250;</button>
+        </div>
+        <div class="cal-grid" id="cal-grid" role="grid" aria-label="Calendario"></div>
+      </div>
+
+      <!-- Filtros -->
+      <nav class="filters" aria-label="Filtrar por categoría">
+        <div class="filter-label">Categorías</div>
+        <div class="filter-item active" data-filter="all" onclick="setFilter('all', this)" role="button" tabindex="0">
+          <div class="filter-dot" style="background:#888780"></div>
+          Todo
+          <span class="count-badge" id="cnt-all">0</span>
+        </div>
+        <div class="filter-item" data-filter="reunion" onclick="setFilter('reunion', this)" role="button" tabindex="0">
+          <div class="filter-dot" style="background:#185FA5"></div>
+          Reuniones
+          <span class="count-badge" id="cnt-reunion">0</span>
+        </div>
+        <div class="filter-item" data-filter="tarea" onclick="setFilter('tarea', this)" role="button" tabindex="0">
+          <div class="filter-dot" style="background:#3B6D11"></div>
+          Tareas
+          <span class="count-badge" id="cnt-tarea">0</span>
+        </div>
+        <div class="filter-item" data-filter="deadline" onclick="setFilter('deadline', this)" role="button" tabindex="0">
+          <div class="filter-dot" style="background:#993C1D"></div>
+          Deadlines
+          <span class="count-badge" id="cnt-deadline">0</span>
+        </div>
+        <div class="filter-item" data-filter="personal" onclick="setFilter('personal', this)" role="button" tabindex="0">
+          <div class="filter-dot" style="background:#534AB7"></div>
+          Personal
+          <span class="count-badge" id="cnt-personal">0</span>
+        </div>
+      </nav>
+
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+
+      <div class="main-header">
+        <div class="main-date">
+          <div class="main-date-big" id="selected-date-label"></div>
+          <div class="main-date-sub" id="selected-date-sub"></div>
+        </div>
+        <button class="btn-add" onclick="openModal()" aria-label="Nuevo evento">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nuevo
+        </button>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-bar" role="region" aria-label="Resumen">
+        <div class="stat-card">
+          <div class="stat-num" id="stat-total">0</div>
+          <div class="stat-lbl">Total</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="stat-pending">0</div>
+          <div class="stat-lbl">Pendientes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="stat-done">0</div>
+          <div class="stat-lbl">Completadas</div>
+        </div>
+      </div>
+
+      <!-- Búsqueda -->
+      <div class="search-wrap">
+        <div class="search-inner">
+          <span class="search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input
+            class="search-input"
+            type="search"
+            id="search-input"
+            placeholder="Buscar eventos y tareas..."
+            oninput="renderEvents()"
+            aria-label="Buscar eventos"
+          >
+        </div>
+      </div>
+
+      <!-- Lista de eventos -->
+      <div class="events-list" id="events-list" role="list" aria-label="Eventos"></div>
+
+    </main>
+  </div>
+</div>
+
+<!-- MODAL: Crear / Editar evento -->
+<div class="modal-bg" id="modal-bg" role="dialog" aria-modal="true" aria-labelledby="modal-title" onclick="handleModalBgClick(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">Nuevo evento</div>
+      <button class="modal-close" onclick="closeModal()" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="ev-title">Título</label>
+      <input class="form-input" type="text" id="ev-title" placeholder="Ej: Reunión de equipo" autocomplete="off">
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="ev-date">Fecha</label>
+        <input class="form-input" type="date" id="ev-date">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ev-time">Hora</label>
+        <input class="form-input" type="time" id="ev-time">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="ev-type">Tipo</label>
+        <select class="form-input" id="ev-type">
+          <option value="reunion">Reunión</option>
+          <option value="tarea">Tarea</option>
+          <option value="deadline">Deadline</option>
+          <option value="personal">Personal</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ev-priority">Prioridad</label>
+        <select class="form-input" id="ev-priority">
+          <option value="high">Alta</option>
+          <option value="med">Media</option>
+          <option value="low">Baja</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="ev-notes">Notas</label>
+      <textarea class="form-input" id="ev-notes" rows="2" placeholder="Detalles adicionales..."></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-delete" id="btn-delete" onclick="deleteEvent()">Eliminar</button>
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveEvent()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ============ DATOS ============
+
+  const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const DAYS_ES = ['L','M','X','J','V','S','D'];
+
+  const TYPE_COLORS  = { reunion:'#185FA5', tarea:'#3B6D11', deadline:'#D85A30', personal:'#534AB7' };
+  const TYPE_LABELS  = { reunion:'Reunión', tarea:'Tarea', deadline:'Deadline', personal:'Personal' };
+
+  let today      = new Date();
+  let calYear    = today.getFullYear();
+  let calMonth   = today.getMonth();
+  let selectedDate = today.toISOString().slice(0, 10);
+  let activeFilter = 'all';
+  let editingId    = null;
+
+  // ============ LOCALSTORAGE ============
+
+  const STORAGE_KEY  = 'agenda_events';
+  const STORAGE_NEXT = 'agenda_nextId';
+
+  function saveToStorage() {
+    localStorage.setItem(STORAGE_KEY,  JSON.stringify(events));
+    localStorage.setItem(STORAGE_NEXT, String(nextId));
+  }
+
+  function loadFromStorage() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const nid = localStorage.getItem(STORAGE_NEXT);
+      if (raw) {
+        events = JSON.parse(raw);
+        nextId = nid ? parseInt(nid, 10) : events.reduce((m,e) => Math.max(m,e.id), 0) + 1;
+        return true;
+      }
+    } catch(e) { console.warn('Error cargando datos:', e); }
+    return false;
+  }
+
+  const SAMPLE_EVENTS = [
+    { id:1, title:'Kickoff Q3 con ventas',       date: offset(0), time:'09:00', type:'reunion',  priority:'high', notes:'Sala B, planta 2', done:false },
+    { id:2, title:'Entregar propuesta cliente X', date: offset(0), time:'17:00', type:'deadline', priority:'high', notes:'Enviar por correo',  done:false },
+    { id:3, title:'Revisar informe mensual',      date: offset(0), time:'11:30', type:'tarea',    priority:'med',  notes:'',                  done:false },
+    { id:4, title:'Llamada con proveedor',        date: offset(1), time:'10:00', type:'reunion',  priority:'low',  notes:'',                  done:false },
+    { id:5, title:'Actualizar documentación',     date: offset(1), time:'',      type:'tarea',    priority:'med',  notes:'',                  done:false },
+    { id:6, title:'Cita médica',                  date: offset(2), time:'16:00', type:'personal', priority:'low',  notes:'',                  done:false },
+  ];
+
+  let events = [];
+  let nextId = 7;
+
+  if (!loadFromStorage()) {
+    events = SAMPLE_EVENTS;
+    nextId = 7;
+    saveToStorage();
+  }
+
+  function offset(days) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  // ============ MINI CALENDARIO ============
+
+  function renderMiniCal() {
+    document.getElementById('cal-month-label').textContent = MONTHS[calMonth] + ' ' + calYear;
+    const grid = document.getElementById('cal-grid');
+    grid.innerHTML = '';
+
+    DAYS_ES.forEach(d => {
+      const el = document.createElement('div');
+      el.className = 'cal-day-label';
+      el.textContent = d;
+      grid.appendChild(el);
+    });
+
+    const firstDay  = new Date(calYear, calMonth, 1);
+    const startDay  = (firstDay.getDay() + 6) % 7; // lunes = 0
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const prevDays  = new Date(calYear, calMonth, 0).getDate();
+    const todayStr  = today.toISOString().slice(0, 10);
+
+    for (let i = 0; i < startDay; i++) {
+      const el = document.createElement('div');
+      el.className = 'cal-day other-month';
+      el.textContent = prevDays - startDay + 1 + i;
+      grid.appendChild(el);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = calYear + '-' + String(calMonth + 1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+      const el = document.createElement('div');
+      el.className = 'cal-day';
+      el.textContent = d;
+      el.setAttribute('role', 'gridcell');
+      el.setAttribute('aria-label', dateStr);
+
+      if (dateStr === todayStr)    el.classList.add('today');
+      if (dateStr === selectedDate && dateStr !== todayStr) el.classList.add('selected');
+      if (events.some(e => e.date === dateStr)) el.classList.add('has-event');
+
+      el.addEventListener('click', () => {
+        selectedDate = dateStr;
+        renderMiniCal();
+        renderHeader();
+        renderEvents();
+      });
+      grid.appendChild(el);
+    }
+
+    const filled = startDay + daysInMonth;
+    const extra  = filled % 7 === 0 ? 0 : 7 - (filled % 7);
+    for (let i = 1; i <= extra; i++) {
+      const el = document.createElement('div');
+      el.className = 'cal-day other-month';
+      el.textContent = i;
+      grid.appendChild(el);
+    }
+  }
+
+  document.getElementById('prev-month').addEventListener('click', () => {
+    calMonth--;
+    if (calMonth < 0) { calMonth = 11; calYear--; }
+    renderMiniCal();
+  });
+
+  document.getElementById('next-month').addEventListener('click', () => {
+    calMonth++;
+    if (calMonth > 11) { calMonth = 0; calYear++; }
+    renderMiniCal();
+  });
+
+  // ============ CABECERA ============
+
+  function renderHeader() {
+    const d = new Date(selectedDate + 'T12:00:00');
+    document.getElementById('selected-date-label').textContent =
+      d.toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long' })
+       .replace(/^\w/, c => c.toUpperCase());
+    const isToday = selectedDate === today.toISOString().slice(0, 10);
+    document.getElementById('selected-date-sub').textContent =
+      isToday ? 'Hoy' : d.toLocaleDateString('es-ES', { year:'numeric' });
+  }
+
+  // ============ STATS ============
+
+  function updateStats(filtered) {
+    const types = ['reunion','tarea','deadline','personal'];
+    document.getElementById('cnt-all').textContent    = events.length;
+    types.forEach(t => {
+      document.getElementById('cnt-' + t).textContent = events.filter(e => e.type === t).length;
+    });
+    document.getElementById('stat-total').textContent   = filtered.length;
+    document.getElementById('stat-pending').textContent = filtered.filter(e => !e.done).length;
+    document.getElementById('stat-done').textContent    = filtered.filter(e =>  e.done).length;
+  }
+
+  // ============ FILTRADO ============
+
+  function getFiltered() {
+    const q = document.getElementById('search-input').value.toLowerCase().trim();
+    return events.filter(e => {
+      const matchType = activeFilter === 'all' || e.type === activeFilter;
+      const matchQ    = !q || e.title.toLowerCase().includes(q) || (e.notes || '').toLowerCase().includes(q);
+      return matchType && matchQ;
+    });
+  }
+
+  function setFilter(f, el) {
+    activeFilter = f;
+    document.querySelectorAll('.filter-item').forEach(x => x.classList.remove('active'));
+    el.classList.add('active');
+    renderEvents();
+  }
+
+  // ============ RENDER EVENTS ============
+
+  function renderEvents() {
+    const filtered = getFiltered();
+    updateStats(filtered);
+
+    const list = document.getElementById('events-list');
+    list.innerHTML = '';
+
+    if (filtered.length === 0) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          No hay eventos<br>Pulsa <strong>+ Nuevo</strong> para añadir uno
+        </div>`;
+      return;
+    }
+
+    const todayStr = today.toISOString().slice(0, 10);
+    const groups   = {};
+    filtered.forEach(e => { (groups[e.date] = groups[e.date] || []).push(e); });
+    const sortedDates = Object.keys(groups).sort();
+
+    sortedDates.forEach(date => {
+      const labelEl = document.createElement('div');
+      labelEl.className = 'day-section-label';
+      if (date === todayStr) {
+        labelEl.textContent = 'Hoy';
+      } else {
+        const dd = new Date(date + 'T12:00:00');
+        labelEl.textContent = dd.toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'short' });
+      }
+      list.appendChild(labelEl);
+
+      groups[date]
+        .sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'))
+        .forEach(ev => {
+          const card = document.createElement('div');
+          card.className = 'event-card';
+          card.setAttribute('role', 'listitem');
+
+          const prioClass = { high:'prio-high', med:'prio-med', low:'prio-low' }[ev.priority];
+
+          card.innerHTML = `
+            <div class="event-check ${ev.done ? 'done' : ''}" aria-label="${ev.done ? 'Marcar pendiente' : 'Marcar completado'}">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="event-color-bar" style="background:${TYPE_COLORS[ev.type]}"></div>
+            <div class="event-body">
+              <div class="event-title ${ev.done ? 'done-text' : ''}">${ev.title}</div>
+              <div class="event-meta">
+                ${ev.time ? `<span class="event-meta-time"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${ev.time}</span>` : ''}
+                <span class="event-badge badge-${ev.type}">${TYPE_LABELS[ev.type]}</span>
+                ${ev.notes ? `<span class="event-notes-preview">${ev.notes}</span>` : ''}
+              </div>
+            </div>
+            <div class="event-priority ${prioClass}" title="Prioridad ${ev.priority}"></div>
+            <button class="btn-delete-card" aria-label="Eliminar evento">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            </button>
+          `;
+
+          card.querySelector('.event-check').addEventListener('click', e => {
+            e.stopPropagation();
+            toggleDone(ev.id);
+          });
+          card.querySelector('.btn-delete-card').addEventListener('click', e => {
+            e.stopPropagation();
+            quickDelete(ev.id);
+          });
+          card.addEventListener('click', () => openModal(ev.id));
+          list.appendChild(card);
+        });
+    });
+  }
+
+  function toggleDone(id) {
+    const ev = events.find(x => x.id === id);
+    if (ev) { ev.done = !ev.done; saveToStorage(); renderEvents(); }
+  }
+
+  function quickDelete(id) {
+    events = events.filter(x => x.id !== id);
+    saveToStorage();
+    renderMiniCal();
+    renderEvents();
+  }
+
+  // ============ MODAL ============
+
+  function openModal(id) {
+    editingId = id || null;
+    const btnDel = document.getElementById('btn-delete');
+
+    if (id) {
+      const ev = events.find(x => x.id === id);
+      document.getElementById('modal-title').textContent = 'Editar evento';
+      document.getElementById('ev-title').value    = ev.title;
+      document.getElementById('ev-date').value     = ev.date;
+      document.getElementById('ev-time').value     = ev.time;
+      document.getElementById('ev-type').value     = ev.type;
+      document.getElementById('ev-priority').value = ev.priority;
+      document.getElementById('ev-notes').value    = ev.notes || '';
+      btnDel.style.display = '';
+    } else {
+      document.getElementById('modal-title').textContent = 'Nuevo evento';
+      document.getElementById('ev-title').value    = '';
+      document.getElementById('ev-date').value     = selectedDate;
+      document.getElementById('ev-time').value     = '';
+      document.getElementById('ev-type').value     = 'tarea';
+      document.getElementById('ev-priority').value = 'med';
+      document.getElementById('ev-notes').value    = '';
+      btnDel.style.display = 'none';
+    }
+
+    document.getElementById('modal-bg').classList.add('open');
+    setTimeout(() => document.getElementById('ev-title').focus(), 80);
+  }
+
+  function closeModal() {
+    document.getElementById('modal-bg').classList.remove('open');
+    editingId = null;
+  }
+
+  function handleModalBgClick(e) {
+    if (e.target === document.getElementById('modal-bg')) closeModal();
+  }
+
+  function saveEvent() {
+    const title = document.getElementById('ev-title').value.trim();
+    if (!title) { document.getElementById('ev-title').focus(); return; }
+
+    const ev = {
+      id:       editingId || nextId++,
+      title,
+      date:     document.getElementById('ev-date').value || selectedDate,
+      time:     document.getElementById('ev-time').value,
+      type:     document.getElementById('ev-type').value,
+      priority: document.getElementById('ev-priority').value,
+      notes:    document.getElementById('ev-notes').value.trim(),
+      done:     editingId ? events.find(x => x.id === editingId).done : false
+    };
+
+    if (editingId) {
+      const idx = events.findIndex(x => x.id === editingId);
+      events[idx] = ev;
+    } else {
+      events.push(ev);
+    }
+
+    saveToStorage();
+    closeModal();
+    renderMiniCal();
+    renderEvents();
+  }
+
+  function deleteEvent() {
+    if (!editingId) return;
+    if (!confirm('¿Eliminar este evento?')) return;
+    events = events.filter(x => x.id !== editingId);
+    saveToStorage();
+    closeModal();
+    renderMiniCal();
+    renderEvents();
+  }
+
+  // Cerrar modal con Escape
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  // ============ INIT ============
+
+  renderMiniCal();
+  renderHeader();
+  renderEvents();
+</script>
+
+</body>
+</html>
