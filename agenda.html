@@ -24,6 +24,21 @@
         </div>
       </div>
 
+      <!-- Selector de agente -->
+      <div style="background:var(--bg-tertiary);border-radius:var(--radius-md);padding:8px 10px;">
+        <div style="font-size:10.5px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Conectado como</div>
+        <select id="worker-selector" onchange="changeWorker(this.value)" style="width:100%;padding:5px 8px;border-radius:var(--radius-sm);border:0.5px solid var(--border-medium);background:var(--bg-primary);color:var(--text-primary);font-size:12px;font-family:inherit;outline:none;">
+          <option value="">— Sin conectar —</option>
+          <option value="clara">Clara Aracil</option>
+          <option value="Leila">Leila Marti</option>
+          <option value="Aranza">Aranza Aracil</option>
+          <option value="Yessi">Yessica Molina</option>
+          <option value="pedro">Pedro González</option>
+          <option value="jorge">Jorge Aracil</option>
+        </select>
+        <div style="font-size:10px;color:var(--text-tertiary);margin-top:5px;">Tu estado en la app del equipo se actualizará automáticamente.</div>
+      </div>
+
       <!-- Mini calendario -->
       <div class="mini-cal">
         <div class="cal-nav">
@@ -194,6 +209,79 @@
   let selectedDate = today.toISOString().slice(0, 10);
   let activeFilter = 'all';
   let editingId    = null;
+
+  // ============ INTEGRACIÓN CON APP DE EQUIPO ============
+  // Mapeo: id del trabajador en la app de equipo → nombre para mostrar
+  // Edita este objeto para que coincida con los ids de tu index.html
+  const AGENDA_WORKER_ID = localStorage.getItem('agendaUser') || null;
+
+  // Tipos de evento → estado en la app de equipo
+  const TYPE_TO_STATUS = {
+    reunion:  'visita',   // reunión = fuera o ocupado
+    deadline: 'ausente',  // deadline = no disponible
+    tarea:    'ausente',  // tarea ocupada = ausente
+    personal: 'ausente'
+  };
+
+  const TYPE_TO_NOTE = {
+    reunion:  'Reunión',
+    deadline: 'Deadline',
+    tarea:    'Tarea',
+    personal: 'Ausente'
+  };
+
+  function syncStatusToTeamApp() {
+    const workerId = localStorage.getItem('agendaUser');
+    if (!workerId || workerId === '__admin__') return;
+
+    const todayStr = today.toISOString().slice(0, 10);
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    // Busca eventos de hoy que estén activos ahora (ocupado = tipo no personal en curso)
+    const active = events.filter(ev => {
+      if (ev.done) return false;
+      if (ev.date !== todayStr) return false;
+      if (!ev.time) return ev.type === 'tarea' || ev.type === 'deadline';
+      const [h, m] = ev.time.split(':').map(Number);
+      const evMinutes = h * 60 + m;
+      return evMinutes <= nowMinutes && nowMinutes <= evMinutes + 120; // ventana 2h
+    });
+
+    try {
+      const raw = localStorage.getItem('agendaShared');
+      const shared = raw ? JSON.parse(raw) : { state: {}, history: [] };
+
+      if (active.length > 0) {
+        const ev = active[0];
+        const newStatus = TYPE_TO_STATUS[ev.type] || 'ausente';
+        const note = `${TYPE_TO_NOTE[ev.type]}: ${ev.title}`;
+        shared.state[workerId] = {
+          status: newStatus,
+          place: '',
+          returnTime: ev.time ? addMinutes(ev.time, 120) : '',
+          note,
+          ts: Date.now(),
+          fromAgenda: true
+        };
+      } else {
+        // Sin eventos activos → en oficina (solo si el estado venía de la agenda)
+        const current = shared.state[workerId] || {};
+        if (current.fromAgenda) {
+          shared.state[workerId] = { status: 'oficina', place: '', returnTime: '', note: '', ts: Date.now(), fromAgenda: false };
+        }
+      }
+
+      localStorage.setItem('agendaShared', JSON.stringify(shared));
+      try { new BroadcastChannel('agenda').postMessage(JSON.stringify(shared)); } catch(e) {}
+    } catch(e) { console.warn('Error sincronizando con app de equipo:', e); }
+  }
+
+  function addMinutes(timeStr, mins) {
+    const [h, m] = timeStr.split(':').map(Number);
+    const total = h * 60 + m + mins;
+    return String(Math.floor(total / 60) % 24).padStart(2,'0') + ':' + String(total % 60).padStart(2,'0');
+  }
 
   // ============ LOCALSTORAGE ============
 
@@ -433,12 +521,13 @@
 
   function toggleDone(id) {
     const ev = events.find(x => x.id === id);
-    if (ev) { ev.done = !ev.done; saveToStorage(); renderEvents(); }
+    if (ev) { ev.done = !ev.done; saveToStorage(); syncStatusToTeamApp(); renderEvents(); }
   }
 
   function quickDelete(id) {
     events = events.filter(x => x.id !== id);
     saveToStorage();
+    syncStatusToTeamApp();
     renderMiniCal();
     renderEvents();
   }
@@ -506,6 +595,7 @@
     }
 
     saveToStorage();
+    syncStatusToTeamApp();
     closeModal();
     renderMiniCal();
     renderEvents();
@@ -516,6 +606,7 @@
     if (!confirm('¿Eliminar este evento?')) return;
     events = events.filter(x => x.id !== editingId);
     saveToStorage();
+    syncStatusToTeamApp();
     closeModal();
     renderMiniCal();
     renderEvents();
@@ -526,11 +617,29 @@
     if (e.key === 'Escape') closeModal();
   });
 
+  function changeWorker(wid) {
+    if (wid) localStorage.setItem('agendaUser', wid);
+    else localStorage.removeItem('agendaUser');
+    syncStatusToTeamApp();
+  }
+
   // ============ INIT ============
 
   renderMiniCal();
   renderHeader();
   renderEvents();
+
+  // Preselecciona el agente si ya estaba guardado en la app de equipo
+  const savedWorker = localStorage.getItem('agendaUser');
+  if (savedWorker && savedWorker !== '__admin__') {
+    const sel = document.getElementById('worker-selector');
+    if (sel) sel.value = savedWorker;
+  }
+
+  syncStatusToTeamApp();
+
+  // Sincroniza cada 5 minutos para reflejar eventos que empiezan/terminan
+  setInterval(() => { today = new Date(); syncStatusToTeamApp(); }, 5 * 60 * 1000);
 </script>
 
 </body>

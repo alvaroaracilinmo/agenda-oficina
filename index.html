@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda del equipo</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-title">Agenda del equipo</div>
+    <div class="login-sub">¿Quién eres?</div>
+    <div id="workerButtons"></div>
+    <div class="login-divider"></div>
+    <button class="admin-login-btn" onclick="showAdminPin()">Acceso administrador</button>
+  </div>
+</div>
+
+<!-- PIN ADMIN -->
+<div class="modal-bg" id="pinModal">
+  <div class="modal" style="max-width:320px">
+    <div class="modal-title">Acceso administrador</div>
+    <div class="form-row">
+      <label class="form-label">Contraseña</label>
+      <input type="password" id="pinInput" placeholder="••••" onkeydown="if(event.key==='Enter') checkPin()">
+    </div>
+    <div id="pinError" style="font-size:12px;color:#A32D2D;margin-bottom:10px;display:none">Contraseña incorrecta</div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closePinModal()">Cancelar</button>
+      <button class="btn-save" onclick="checkPin()">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP TRABAJADOR -->
+<div id="appScreen">
+  <div class="top-bar">
+    <div class="top-left">
+      <div class="top-av" id="topAv"></div>
+      <div>
+        <div class="top-name" id="topName"></div>
+        <div class="top-role" id="topRole"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <a href="agenda.html" style="font-size:12px;color:var(--text-hint);text-decoration:none;padding:4px 8px;border-radius:8px;border:0.5px solid var(--border)">📅 Mi agenda</a>
+      <button class="btn-logout" onclick="logout()">Cambiar</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="my-card">
+      <div class="my-card-label">Mi estado</div>
+      <div class="my-status-row">
+        <div class="badge" id="myBadge"><div class="dot"></div><span id="myStatusText">En oficina</span></div>
+      </div>
+      <div class="my-detail" id="myDetail"></div>
+      <button class="update-btn" onclick="openForm(null)">Actualizar mi estado</button>
+      <button class="update-btn green" id="btnBack" onclick="quickBack()" style="display:none;margin-top:8px">Ya llegué a la oficina</button>
+    </div>
+
+    <div class="summary" id="summaryRow"></div>
+    <div class="refresh-row"><button class="btn-refresh" onclick="loadData()">Actualizar</button></div>
+    <div class="last-updated" id="lastUpdated"></div>
+
+    <div class="section-label">Compañeros</div>
+    <div class="team-grid" id="teamGrid"></div>
+
+    <div class="section-label">Registro de hoy</div>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<!-- APP ADMINISTRADOR -->
+<div id="adminScreen">
+  <div class="top-bar admin-top-bar">
+    <div class="top-left">
+      <div class="top-av admin-av">AD</div>
+      <div>
+        <div class="top-name">Administrador</div>
+        <div class="top-role admin-top-role">Panel de control</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn-add-worker" onclick="openForm('__pick__')">Editar estado</button>
+      <button class="btn-logout" onclick="logout()">Salir</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="summary" id="adminSummaryRow"></div>
+    <div class="refresh-row"><button class="btn-refresh" onclick="loadData()">Actualizar</button></div>
+    <div class="last-updated" id="adminLastUpdated"></div>
+
+    <div class="section-label">Estado del equipo</div>
+    <div class="admin-grid" id="adminGrid"></div>
+
+    <div class="section-label" style="margin-top:8px">Registro de hoy</div>
+    <div id="adminHistoryList"></div>
+  </div>
+</div>
+
+<!-- FORM MODAL -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Actualizar estado</div>
+    <div class="form-row" id="workerSelectRow" style="display:none">
+      <label class="form-label">Trabajador</label>
+      <select id="fWorker" onchange="loadWorkerIntoForm(this.value)"></select>
+    </div>
+    <div class="form-row">
+      <label class="form-label" id="statusQuestion">¿Dónde estás?</label>
+      <div class="status-btns">
+        <div class="status-opt s-oficina" data-val="oficina" onclick="selStatus('oficina')">En oficina</div>
+        <div class="status-opt s-visita"  data-val="visita"  onclick="selStatus('visita')">En visita</div>
+        <div class="status-opt s-camino"  data-val="camino"  onclick="selStatus('camino')">De camino</div>
+        <div class="status-opt s-ausente" data-val="ausente" onclick="selStatus('ausente')">Ausente</div>
+      </div>
+    </div>
+    <div class="form-row" id="placeRow">
+      <label class="form-label">Lugar / destino</label>
+      <input type="text" id="fPlace" placeholder="Ej: Cliente ABC, Calle Mayor 5">
+    </div>
+    <div class="form-grid">
+      <div class="form-row" id="returnRow">
+        <label class="form-label">Hora de regreso</label>
+        <input type="time" id="fReturn">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Nota (opcional)</label>
+        <input type="text" id="fNote" placeholder="Reunión, llamada...">
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeForm()">Cancelar</button>
+      <button class="btn-save" onclick="saveStatus()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const WORKERS = [
+  {id:'clara',    name:'Clara Aracil',    role:'Comercial',      color:'#E6F1FB', text:'#0C447C'},
+  {id:'Leila', name:'Leila Marti',   role:'Comercial',        color:'#EAF3DE', text:'#27500A'},
+  {id:'Aranza',  name:'Aranza Aracil',   role:'Comercial', color:'#FBEAF0', text:'#72243E'},
+  {id:'Yessi', name:'Yessica Molina', role:'Comercial',      color:'#FAEEDA', text:'#633806'},
+  {id:'pedro',  name:'Pedro González', role:'administrativo',        color:'#EEEDFE', text:'#3C3489'},
+  {id:'jorge',  name:'Jorge Aracil',   role:'Jefe',      color:'#FAECE7', text:'#712B13'}
+];
+
+const ADMIN_PIN = '1234';
+
+const STATUS_LABELS = {oficina:'En oficina', visita:'En visita', camino:'De camino', ausente:'Ausente'};
+const STATUS_BADGE  = {oficina:'b-oficina',  visita:'b-visita',  camino:'b-camino',  ausente:'b-ausente'};
+
+let currentUser = null;
+let isAdmin = false;
+let teamState = {};
+let history = [];
+let selectedStatus = 'oficina';
+let editingWorkerId = null;
+
+function initials(n){ return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+
+// ---------- STORAGE ----------
+async function syncLoad() {
+  try {
+    const raw = localStorage.getItem('agendaShared');
+    if (raw) { const p = JSON.parse(raw); teamState = p.state || {}; history = p.history || []; }
+  } catch(e) {}
+  WORKERS.forEach(w => {
+    if (!teamState[w.id]) teamState[w.id] = {status:'oficina', place:'', returnTime:'', note:'', ts: Date.now()};
+  });
+}
+
+function syncSave() {
+  try {
+    const data = JSON.stringify({state: teamState, history});
+    localStorage.setItem('agendaShared', data);
+    try { new BroadcastChannel('agenda').postMessage(data); } catch(e){}
+  } catch(e){}
+}
+
+// ---------- LOGIN ----------
+function renderLogin() {
+  document.getElementById('workerButtons').innerHTML = WORKERS.map(w => `
+    <button class="worker-btn" onclick="login('${w.id}')">
+      <div style="background:${w.color};color:${w.text};width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">${initials(w.name)}</div>
+      <div class="info"><div>${w.name}</div><div class="role">${w.role}</div></div>
+    </button>
+  `).join('');
+}
+
+function showAdminPin() {
+  document.getElementById('pinInput').value = '';
+  document.getElementById('pinError').style.display = 'none';
+  document.getElementById('pinModal').classList.add('open');
+  setTimeout(() => document.getElementById('pinInput').focus(), 100);
+}
+
+function closePinModal() { document.getElementById('pinModal').classList.remove('open'); }
+
+function checkPin() {
+  if (document.getElementById('pinInput').value === ADMIN_PIN) {
+    closePinModal();
+    loginAdmin();
+  } else {
+    document.getElementById('pinError').style.display = 'block';
+    document.getElementById('pinInput').value = '';
+    document.getElementById('pinInput').focus();
+  }
+}
+
+async function login(id) {
+  currentUser = WORKERS.find(w => w.id === id);
+  isAdmin = false;
+  localStorage.setItem('agendaUser', id);
+  showScreen('appScreen');
+  renderTopBar();
+  await loadData();
+  try {
+    const bc = new BroadcastChannel('agenda');
+    bc.onmessage = e => { try { const p=JSON.parse(e.data); teamState=p.state||{}; history=p.history||[]; renderApp(); } catch(e){} };
+  } catch(e){}
+}
+
+async function loginAdmin() {
+  isAdmin = true;
+  currentUser = null;
+  localStorage.setItem('agendaUser', '__admin__');
+  showScreen('adminScreen');
+  await loadData();
+  try {
+    const bc = new BroadcastChannel('agenda');
+    bc.onmessage = e => { try { const p=JSON.parse(e.data); teamState=p.state||{}; history=p.history||[]; renderAdmin(); } catch(e){} };
+  } catch(e){}
+}
+
+function logout() {
+  currentUser = null; isAdmin = false;
+  localStorage.removeItem('agendaUser');
+  showScreen('loginScreen');
+}
+
+function showScreen(id) {
+  ['loginScreen','appScreen','adminScreen'].forEach(s => {
+    const el = document.getElementById(s);
+    el.style.display = s === id ? (s === 'loginScreen' ? 'flex' : 'block') : 'none';
+  });
+}
+
+function renderTopBar() {
+  const w = currentUser;
+  const av = document.getElementById('topAv');
+  av.style.cssText = `background:${w.color};color:${w.text};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0`;
+  av.textContent = initials(w.name);
+  document.getElementById('topName').textContent = w.name;
+  document.getElementById('topRole').textContent = w.role;
+}
+
+async function loadData() {
+  await syncLoad();
+  if (isAdmin) renderAdmin(); else renderApp();
+  const now = new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  const el = document.getElementById(isAdmin ? 'adminLastUpdated' : 'lastUpdated');
+  if (el) el.textContent = 'Actualizado: ' + now;
+}
+
+// ---------- RENDER TRABAJADOR ----------
+function renderApp() {
+  const me = teamState[currentUser.id] || {status:'oficina'};
+  const badge = document.getElementById('myBadge');
+  badge.className = 'badge ' + STATUS_BADGE[me.status];
+  document.getElementById('myStatusText').textContent = STATUS_LABELS[me.status];
+  let det = '';
+  if (me.place) det += `Lugar: <span>${me.place}</span><br>`;
+  if (me.returnTime) det += `Regresa: <span>${me.returnTime}</span><br>`;
+  if (me.note) det += `<span>${me.note}</span>`;
+  document.getElementById('myDetail').innerHTML = det;
+  document.getElementById('btnBack').style.display = me.status !== 'oficina' ? 'block' : 'none';
+  renderSummary('summaryRow');
+  document.getElementById('teamGrid').innerHTML = WORKERS.filter(w => w.id !== currentUser.id).map(w => workerCard(w, false)).join('');
+  renderHistory('historyList');
+}
+
+// ---------- RENDER ADMIN ----------
+function renderAdmin() {
+  renderSummary('adminSummaryRow');
+  document.getElementById('adminGrid').innerHTML = WORKERS.map(w => workerCard(w, true)).join('');
+  renderHistory('adminHistoryList');
+}
+
+function workerCard(w, adminMode) {
+  const ws = teamState[w.id] || {status:'oficina'};
+  return `
+    <div class="t-card ${adminMode ? 'admin-card' : ''}">
+      <div class="t-head">
+        <div class="t-av" style="background:${w.color};color:${w.text}">${initials(w.name)}</div>
+        <div style="flex:1"><div class="t-name">${w.name}</div><div class="t-role">${w.role}</div></div>
+        ${adminMode ? `<button class="btn-edit-worker" onclick="openForm('${w.id}')">Editar</button>` : ''}
+      </div>
+      <div class="badge ${STATUS_BADGE[ws.status]}" style="font-size:12px;padding:4px 10px;margin-bottom:6px"><div class="dot"></div>${STATUS_LABELS[ws.status]}</div>
+      <div class="t-info">
+        ${ws.place ? `<div>Lugar: <span>${ws.place}</span></div>` : ''}
+        ${ws.returnTime ? `<div>Regresa: <span>${ws.returnTime}</span></div>` : ''}
+      </div>
+      ${ws.note ? `<div class="t-note">${ws.fromAgenda ? '📅 ' : ''}${ws.note}</div>` : ''}
+      ${adminMode && ws.status !== 'oficina' ? `<button class="btn-quick-back" onclick="adminQuickBack('${w.id}')">Marcar en oficina</button>` : ''}
+    </div>
+  `;
+}
+
+function renderSummary(elId) {
+  const counts = {oficina:0, visita:0, camino:0, ausente:0};
+  WORKERS.forEach(w => { const s=(teamState[w.id]||{}).status||'oficina'; counts[s]++; });
+  document.getElementById(elId).innerHTML = `
+    <div class="sum-pill"><span style="width:8px;height:8px;border-radius:50%;background:var(--green-dot);display:inline-block"></span> En oficina <strong>${counts.oficina}</strong></div>
+    <div class="sum-pill"><span style="width:8px;height:8px;border-radius:50%;background:var(--amber-dot);display:inline-block"></span> En visita <strong>${counts.visita}</strong></div>
+    <div class="sum-pill"><span style="width:8px;height:8px;border-radius:50%;background:var(--blue-dot);display:inline-block"></span> De camino <strong>${counts.camino}</strong></div>
+    ${counts.ausente ? `<div class="sum-pill"><span style="width:8px;height:8px;border-radius:50%;background:var(--gray-dot);display:inline-block"></span> Ausente <strong>${counts.ausente}</strong></div>` : ''}
+  `;
+}
+
+function renderHistory(elId) {
+  const hl = document.getElementById(elId);
+  if (!history.length) { hl.innerHTML = '<div class="empty">Sin registros aún</div>'; return; }
+  hl.innerHTML = history.slice(0,20).map(h => `
+    <div class="hist-item">
+      <div class="hist-time">${h.time}</div>
+      <div class="hist-body">
+        <div class="hist-who">${h.who}${h.editedBy ? ' <span class="hist-admin-tag">Admin</span>' : ''} — ${STATUS_LABELS[h.status]||h.status}</div>
+        <div class="hist-detail">${[h.place, h.returnTime?'Regresa: '+h.returnTime:'', h.note].filter(Boolean).join(' · ')}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ---------- FORM ----------
+function openForm(workerId) {
+  // workerId: null = worker editing self | '__pick__' = admin picks worker | 'wid' = admin editing specific worker
+  const pickMode = workerId === '__pick__';
+
+  if (pickMode) {
+    editingWorkerId = WORKERS[0].id;
+    document.getElementById('modalTitle').textContent = 'Editar estado de trabajador';
+    document.getElementById('statusQuestion').textContent = '¿Dónde está?';
+    const wRow = document.getElementById('workerSelectRow');
+    wRow.style.display = 'block';
+    document.getElementById('fWorker').innerHTML = WORKERS.map(w => `<option value="${w.id}">${w.name} — ${w.role}</option>`).join('');
+  } else if (isAdmin && workerId) {
+    editingWorkerId = workerId;
+    const w = WORKERS.find(x => x.id === workerId);
+    document.getElementById('modalTitle').textContent = `Editar — ${w.name}`;
+    document.getElementById('statusQuestion').textContent = '¿Dónde está?';
+    document.getElementById('workerSelectRow').style.display = 'none';
+  } else {
+    editingWorkerId = currentUser.id;
+    document.getElementById('modalTitle').textContent = 'Actualizar mi estado';
+    document.getElementById('statusQuestion').textContent = '¿Dónde estás?';
+    document.getElementById('workerSelectRow').style.display = 'none';
+  }
+
+  loadWorkerIntoForm(editingWorkerId);
+  document.getElementById('modalBg').classList.add('open');
+}
+
+function loadWorkerIntoForm(wid) {
+  editingWorkerId = wid;
+  const ws = teamState[wid] || {status:'oficina'};
+  selectedStatus = ws.status;
+  document.getElementById('fPlace').value = ws.place || '';
+  document.getElementById('fReturn').value = ws.returnTime || '';
+  document.getElementById('fNote').value = ws.note || '';
+  updateStatusBtns();
+}
+
+function closeForm() { document.getElementById('modalBg').classList.remove('open'); }
+
+function selStatus(val) { selectedStatus = val; updateStatusBtns(); }
+
+function updateStatusBtns() {
+  document.querySelectorAll('.status-opt').forEach(el => el.classList.toggle('sel', el.dataset.val === selectedStatus));
+  const show = selectedStatus !== 'oficina';
+  document.getElementById('placeRow').style.display = show ? 'block' : 'none';
+  document.getElementById('returnRow').style.display = show ? 'block' : 'none';
+}
+
+function saveStatus() {
+  const wid = editingWorkerId;
+  const place = document.getElementById('fPlace').value.trim();
+  const returnTime = document.getElementById('fReturn').value;
+  const note = document.getElementById('fNote').value.trim();
+
+  teamState[wid] = {status: selectedStatus, place, returnTime, note, ts: Date.now()};
+
+  const w = WORKERS.find(x => x.id === wid);
+  const now = new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  history.unshift({
+    time: now, who: w.name, status: selectedStatus,
+    place, returnTime, note,
+    editedBy: isAdmin ? 'admin' : null
+  });
+  if (history.length > 60) history = history.slice(0,60);
+
+  syncSave();
+  closeForm();
+  if (isAdmin) renderAdmin(); else renderApp();
+  const el = document.getElementById(isAdmin ? 'adminLastUpdated' : 'lastUpdated');
+  if (el) el.textContent = 'Actualizado: ' + now;
+}
+
+function quickBack() {
+  const prev = (teamState[currentUser.id]||{}).place;
+  teamState[currentUser.id] = {status:'oficina', place:'', returnTime:'', note:'', ts: Date.now()};
+  const now = new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  history.unshift({time:now, who:currentUser.name, status:'oficina', place:'', returnTime:'', note: prev?`Regresó de ${prev}`:'Regresó a la oficina'});
+  if (history.length > 60) history = history.slice(0,60);
+  syncSave(); renderApp();
+}
+
+function adminQuickBack(wid) {
+  const w = WORKERS.find(x => x.id === wid);
+  const prev = (teamState[wid]||{}).place;
+  teamState[wid] = {status:'oficina', place:'', returnTime:'', note:'', ts: Date.now()};
+  const now = new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  history.unshift({time:now, who:w.name, status:'oficina', place:'', returnTime:'', note: prev?`Regresó de ${prev}`:'Regresó a la oficina', editedBy:'admin'});
+  if (history.length > 60) history = history.slice(0,60);
+  syncSave(); renderAdmin();
+}
+
+// ---------- INIT ----------
+showScreen('loginScreen');
+renderLogin();
+
+const savedUser = localStorage.getItem('agendaUser');
+if (savedUser === '__admin__') loginAdmin();
+else if (savedUser) { const w = WORKERS.find(x => x.id === savedUser); if (w) login(w.id); }
+
+setInterval(loadData, 30000);
+
+// Escucha cambios en tiempo real desde la agenda
+try {
+  const bc = new BroadcastChannel('agenda');
+  bc.onmessage = (e) => {
+    try {
+      const p = JSON.parse(e.data);
+      teamState = p.state || teamState;
+      history   = p.history || history;
+      if (isAdmin) renderAdmin(); else if (currentUser) renderApp();
+    } catch(err) {}
+  };
+} catch(e) {}
+</script>
+</body>
+</html>
