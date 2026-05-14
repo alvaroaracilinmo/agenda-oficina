@@ -66,10 +66,10 @@
           Tareas
           <span class="count-badge" id="cnt-tarea">0</span>
         </div>
-        <div class="filter-item" data-filter="deadline" onclick="setFilter('deadline', this)" role="button" tabindex="0">
+        <div class="filter-item" data-filter="visita_cli" onclick="setFilter('visita_cli', this)" role="button" tabindex="0">
           <div class="filter-dot" style="background:#993C1D"></div>
-          Deadlines
-          <span class="count-badge" id="cnt-deadline">0</span>
+          Visitas
+          <span class="count-badge" id="cnt-visita_cli">0</span>
         </div>
         <div class="filter-item" data-filter="personal" onclick="setFilter('personal', this)" role="button" tabindex="0">
           <div class="filter-dot" style="background:#534AB7"></div>
@@ -170,7 +170,7 @@
         <select class="form-input" id="ev-type">
           <option value="reunion">Reunión</option>
           <option value="tarea">Tarea</option>
-          <option value="deadline">Deadline</option>
+          <option value="visita_cli">Visita</option>
           <option value="personal">Personal</option>
         </select>
       </div>
@@ -203,8 +203,8 @@
   const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const DAYS_ES = ['L','M','X','J','V','S','D'];
 
-  const TYPE_COLORS  = { reunion:'#185FA5', tarea:'#3B6D11', deadline:'#D85A30', personal:'#534AB7' };
-  const TYPE_LABELS  = { reunion:'Reunión', tarea:'Tarea', deadline:'Deadline', personal:'Personal' };
+  const TYPE_COLORS  = { reunion:'#185FA5', tarea:'#3B6D11', visita_cli:'#D85A30', personal:'#534AB7' };
+  const TYPE_LABELS  = { reunion:'Reunión', tarea:'Tarea', visita_cli:'Visita', personal:'Personal' };
 
   let today      = new Date();
   let calYear    = today.getFullYear();
@@ -262,8 +262,8 @@
 
   // ============ INTEGRACIÓN CON APP DE EQUIPO ============
 
-  const TYPE_TO_STATUS = { reunion:'visita', deadline:'ausente', tarea:'ausente', personal:'ausente' };
-  const TYPE_TO_NOTE   = { reunion:'Reunión', deadline:'Deadline', tarea:'Tarea', personal:'Ausente' };
+  const TYPE_TO_STATUS = { reunion:'visita', visita_cli:'ausente', tarea:'ausente', personal:'ausente' };
+  const TYPE_TO_NOTE   = { reunion:'Reunión', visita_cli:'Visita', tarea:'Tarea', personal:'Ausente' };
 
   function addMinutes(timeStr, mins) {
     const [h, m] = timeStr.split(':').map(Number);
@@ -281,7 +281,7 @@
 
     const active = events.filter(ev => {
       if (ev.done || ev.date !== todayStr) return false;
-      if (!ev.time) return ev.type === 'tarea' || ev.type === 'deadline';
+      if (!ev.time) return ev.type === 'tarea' || ev.type === 'visita_cli';
       const [h, m] = ev.time.split(':').map(Number);
       const evMin = h * 60 + m;
       return evMin <= nowMinutes && nowMinutes <= evMin + 120;
@@ -403,7 +403,7 @@
   // ============ STATS ============
 
   function updateStats(filtered) {
-    const types = ['reunion','tarea','deadline','personal'];
+    const types = ['reunion','tarea','visita_cli','personal'];
     document.getElementById('cnt-all').textContent    = events.length;
     types.forEach(t => {
       document.getElementById('cnt-' + t).textContent = events.filter(e => e.type === t).length;

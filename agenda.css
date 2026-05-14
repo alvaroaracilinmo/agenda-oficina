@@ -539,7 +539,7 @@ html, body {
 
 .badge-reunion { background: var(--accent-light); color: var(--accent); }
 .badge-tarea   { background: var(--green-light);  color: var(--green);  }
-.badge-deadline{ background: var(--coral-light);  color: var(--coral);  }
+.badge-visita_cli{ background: var(--coral-light);  color: var(--coral);  }
 .badge-personal{ background: var(--purple-light); color: var(--purple); }
 
 .event-notes-preview {
