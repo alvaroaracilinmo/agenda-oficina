@@ -648,6 +648,36 @@ html, body {
   stroke-linecap: round;
 }
 
+.btn-home {
+  padding: 6px 13px;
+  border-radius: var(--radius-md);
+  border: 0.5px solid var(--border-medium);
+  background: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-family: inherit;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.btn-home:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.btn-home svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* ============ MODAL ============ */
 
 .modal-bg {
