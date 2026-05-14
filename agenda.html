@@ -672,10 +672,11 @@
   if (savedWorker && savedWorker !== '__admin__') {
     const sel = document.getElementById('worker-selector');
     if (sel) sel.value = savedWorker;
+    changeWorker(savedWorker);
+  } else {
+    loadFromSupabase();
+    syncStatusToTeamApp();
   }
-
-  loadFromSupabase();
-  syncStatusToTeamApp();
 
   // Sincroniza cada 5 minutos
   setInterval(() => { today = new Date(); syncStatusToTeamApp(); }, 5 * 60 * 1000);
