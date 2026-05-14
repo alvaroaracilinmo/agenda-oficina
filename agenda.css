@@ -648,7 +648,37 @@ html, body {
   stroke-linecap: round;
 }
 
-.btn-home {
+.reunion-loc-btn {
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 0.5px solid var(--border-medium);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.reunion-loc-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.reunion-loc-btn.active[data-loc="oficina"] {
+  background: #EAF3DE;
+  color: #27500A;
+  border-color: #3B6D11;
+  border-width: 1.5px;
+}
+
+.reunion-loc-btn.active[data-loc="fuera"] {
+  background: #FAECE7;
+  color: #712B13;
+  border-color: #993C1D;
+  border-width: 1.5px;
+}
   padding: 6px 13px;
   border-radius: var(--radius-md);
   border: 0.5px solid var(--border-medium);

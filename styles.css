@@ -18,6 +18,7 @@
   --amber-bg: #FAEEDA; --amber-text: #633806; --amber-dot: #854F0B;
   --blue-bg:  #E6F1FB; --blue-text:  #0C447C; --blue-dot:  #185FA5;
   --gray-bg:  #F1EFE8; --gray-text:  #444441; --gray-dot:  #888780;
+  --red-bg:   #FAECEC; --red-text:   #7A1F1F; --red-dot:   #C0392B;
 }
 
 /* Reset */
@@ -234,6 +235,8 @@ body {
 .b-camino .dot           { background: var(--blue-dot); }
 .b-ausente               { background: var(--gray-bg);  color: var(--gray-text); }
 .b-ausente .dot          { background: var(--gray-dot); }
+.b-reunido               { background: var(--red-bg);   color: var(--red-text); }
+.b-reunido .dot          { background: var(--red-dot); }
 
 .my-detail {
   font-size: 13px;

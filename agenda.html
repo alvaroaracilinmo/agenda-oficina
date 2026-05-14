@@ -167,7 +167,7 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="ev-type">Tipo</label>
-        <select class="form-input" id="ev-type">
+        <select class="form-input" id="ev-type" onchange="toggleReunionLocation()">
           <option value="reunion">Reunión</option>
           <option value="tarea">Tarea</option>
           <option value="visita_cli">Visita</option>
@@ -181,6 +181,14 @@
           <option value="med">Media</option>
           <option value="low">Baja</option>
         </select>
+      </div>
+    </div>
+
+    <div class="form-group" id="reunion-location-group" style="display:none;">
+      <label class="form-label">¿Dónde se hace la reunión?</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="reunion-loc-btn active" data-loc="oficina" onclick="selectReunionLoc('oficina')">🏢 En la oficina</div>
+        <div class="reunion-loc-btn" data-loc="fuera" onclick="selectReunionLoc('fuera')">🚗 Fuera</div>
       </div>
     </div>
 
@@ -262,8 +270,23 @@
 
   // ============ INTEGRACIÓN CON APP DE EQUIPO ============
 
-  const TYPE_TO_STATUS = { reunion:'visita', visita_cli:'ausente', tarea:'ausente', personal:'ausente' };
+  const TYPE_TO_STATUS = { reunion:'visita', visita_cli:'ausente', personal:'ausente' };
   const TYPE_TO_NOTE   = { reunion:'Reunión', visita_cli:'Visita', tarea:'Tarea', personal:'Ausente' };
+
+  function getStatusForEvent(ev) {
+    if (ev.type === 'reunion') {
+      return ev.reunionLoc === 'fuera' ? 'ausente' : 'reunido';
+    }
+    return TYPE_TO_STATUS[ev.type] || 'ausente';
+  }
+
+  function getNoteForEvent(ev) {
+    if (ev.type === 'reunion') {
+      const lugar = ev.reunionLoc === 'fuera' ? 'fuera' : 'en oficina';
+      return `Reunión ${lugar}: ${ev.title}`;
+    }
+    return `${TYPE_TO_NOTE[ev.type] || ''}: ${ev.title}`;
+  }
 
   function addMinutes(timeStr, mins) {
     const [h, m] = timeStr.split(':').map(Number);
@@ -281,7 +304,7 @@
 
     const active = events.filter(ev => {
       if (ev.done || ev.date !== todayStr) return false;
-      if (!ev.time) return ev.type === 'tarea' || ev.type === 'visita_cli';
+      if (!ev.time) return ev.type === 'visita_cli';
       const [h, m] = ev.time.split(':').map(Number);
       const evMin = h * 60 + m;
       return evMin <= nowMinutes && nowMinutes <= evMin + 120;
@@ -291,8 +314,8 @@
       let status = 'oficina', place = '', returnTime = '', note = '', fromAgenda = false;
       if (active.length > 0) {
         const ev = active[0];
-        status = TYPE_TO_STATUS[ev.type] || 'ausente';
-        note = `${TYPE_TO_NOTE[ev.type]}: ${ev.title}`;
+        status = getStatusForEvent(ev);
+        note = getNoteForEvent(ev);
         returnTime = ev.time ? addMinutes(ev.time, 120) : '';
         fromAgenda = true;
       } else {
@@ -309,7 +332,20 @@
     } catch(e) { console.warn('Error sincronizando estado:', e); }
   }
 
-  let events = [];
+  let reunionLocation = 'oficina'; // 'oficina' o 'fuera'
+
+  function toggleReunionLocation() {
+    const type = document.getElementById('ev-type').value;
+    const group = document.getElementById('reunion-location-group');
+    group.style.display = type === 'reunion' ? '' : 'none';
+  }
+
+  function selectReunionLoc(loc) {
+    reunionLocation = loc;
+    document.querySelectorAll('.reunion-loc-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.loc === loc);
+    });
+  }
   let nextId = 1;
 
   function offset(days) {
@@ -540,6 +576,9 @@
       document.getElementById('ev-type').value     = ev.type;
       document.getElementById('ev-priority').value = ev.priority;
       document.getElementById('ev-notes').value    = ev.notes || '';
+      reunionLocation = ev.reunionLoc || 'oficina';
+      selectReunionLoc(reunionLocation);
+      toggleReunionLocation();
       btnDel.style.display = '';
     } else {
       document.getElementById('modal-title').textContent = 'Nuevo evento';
@@ -549,6 +588,9 @@
       document.getElementById('ev-type').value     = 'tarea';
       document.getElementById('ev-priority').value = 'med';
       document.getElementById('ev-notes').value    = '';
+      reunionLocation = 'oficina';
+      selectReunionLoc('oficina');
+      document.getElementById('reunion-location-group').style.display = 'none';
       btnDel.style.display = 'none';
     }
 
@@ -578,7 +620,8 @@
       type:     document.getElementById('ev-type').value,
       priority: document.getElementById('ev-priority').value,
       notes:    document.getElementById('ev-notes').value.trim(),
-      done:     editingId ? events.find(x => x.id === editingId).done : false
+      done:     editingId ? events.find(x => x.id === editingId).done : false,
+      reunionLoc: document.getElementById('ev-type').value === 'reunion' ? reunionLocation : null
     };
 
     await saveEventToSupabase(ev);
