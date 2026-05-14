@@ -210,72 +210,57 @@
   let activeFilter = 'all';
   let editingId    = null;
 
-  // ============ INTEGRACIÓN CON APP DE EQUIPO ============
-  // Mapeo: id del trabajador en la app de equipo → nombre para mostrar
-  // Edita este objeto para que coincida con los ids de tu index.html
-  const AGENDA_WORKER_ID = localStorage.getItem('agendaUser') || null;
+  // ============ SUPABASE ============
 
-  // Tipos de evento → estado en la app de equipo
-  const TYPE_TO_STATUS = {
-    reunion:  'visita',   // reunión = fuera o ocupado
-    deadline: 'ausente',  // deadline = no disponible
-    tarea:    'ausente',  // tarea ocupada = ausente
-    personal: 'ausente'
-  };
+  const SB_URL = 'https://tyfgjnsrwpfhqjztppsz.supabase.co';
+  const SB_KEY = 'sb_publishable_FjEg6VW-67ebLtoeZkJ2_A_tJynunUX';
 
-  const TYPE_TO_NOTE = {
-    reunion:  'Reunión',
-    deadline: 'Deadline',
-    tarea:    'Tarea',
-    personal: 'Ausente'
-  };
-
-  function syncStatusToTeamApp() {
-    const workerId = localStorage.getItem('agendaUser');
-    if (!workerId || workerId === '__admin__') return;
-
-    const todayStr = today.toISOString().slice(0, 10);
-    const now = new Date();
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-
-    // Busca eventos de hoy que estén activos ahora (ocupado = tipo no personal en curso)
-    const active = events.filter(ev => {
-      if (ev.done) return false;
-      if (ev.date !== todayStr) return false;
-      if (!ev.time) return ev.type === 'tarea' || ev.type === 'deadline';
-      const [h, m] = ev.time.split(':').map(Number);
-      const evMinutes = h * 60 + m;
-      return evMinutes <= nowMinutes && nowMinutes <= evMinutes + 120; // ventana 2h
-    });
-
-    try {
-      const raw = localStorage.getItem('agendaShared');
-      const shared = raw ? JSON.parse(raw) : { state: {}, history: [] };
-
-      if (active.length > 0) {
-        const ev = active[0];
-        const newStatus = TYPE_TO_STATUS[ev.type] || 'ausente';
-        const note = `${TYPE_TO_NOTE[ev.type]}: ${ev.title}`;
-        shared.state[workerId] = {
-          status: newStatus,
-          place: '',
-          returnTime: ev.time ? addMinutes(ev.time, 120) : '',
-          note,
-          ts: Date.now(),
-          fromAgenda: true
-        };
-      } else {
-        // Sin eventos activos → en oficina (solo si el estado venía de la agenda)
-        const current = shared.state[workerId] || {};
-        if (current.fromAgenda) {
-          shared.state[workerId] = { status: 'oficina', place: '', returnTime: '', note: '', ts: Date.now(), fromAgenda: false };
-        }
-      }
-
-      localStorage.setItem('agendaShared', JSON.stringify(shared));
-      try { new BroadcastChannel('agenda').postMessage(JSON.stringify(shared)); } catch(e) {}
-    } catch(e) { console.warn('Error sincronizando con app de equipo:', e); }
+  function sbHeaders() {
+    return { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY };
   }
+
+  async function loadFromSupabase() {
+    const workerId = localStorage.getItem('agendaUser');
+    if (!workerId || workerId === '__admin__') { events = []; renderMiniCal(); renderEvents(); return; }
+    try {
+      const res = await fetch(`${SB_URL}/rest/v1/agenda_events?worker_id=eq.${workerId}&order=date.asc`, { headers: sbHeaders() });
+      const data = await res.json();
+      events = data.map(r => ({
+        id: r.id, title: r.title, date: r.date, time: r.time || '',
+        type: r.type, priority: r.priority, notes: r.notes || '', done: r.done
+      }));
+      nextId = events.length ? Math.max(...events.map(e => e.id)) + 1 : 1;
+    } catch(e) { console.warn('Error cargando agenda:', e); events = []; }
+    renderMiniCal();
+    renderEvents();
+  }
+
+  async function saveEventToSupabase(ev) {
+    const workerId = localStorage.getItem('agendaUser');
+    if (!workerId) return;
+    const body = { worker_id: workerId, title: ev.title, date: ev.date, time: ev.time,
+      type: ev.type, priority: ev.priority, notes: ev.notes, done: ev.done };
+    if (ev.id && ev._exists) {
+      await fetch(`${SB_URL}/rest/v1/agenda_events?id=eq.${ev.id}`, {
+        method: 'PATCH', headers: sbHeaders(), body: JSON.stringify(body)
+      });
+    } else {
+      const res = await fetch(`${SB_URL}/rest/v1/agenda_events`, {
+        method: 'POST', headers: { ...sbHeaders(), 'Prefer': 'return=representation' }, body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (data[0]) ev.id = data[0].id;
+    }
+  }
+
+  async function deleteEventFromSupabase(id) {
+    await fetch(`${SB_URL}/rest/v1/agenda_events?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
+  }
+
+  // ============ INTEGRACIÓN CON APP DE EQUIPO ============
+
+  const TYPE_TO_STATUS = { reunion:'visita', deadline:'ausente', tarea:'ausente', personal:'ausente' };
+  const TYPE_TO_NOTE   = { reunion:'Reunión', deadline:'Deadline', tarea:'Tarea', personal:'Ausente' };
 
   function addMinutes(timeStr, mins) {
     const [h, m] = timeStr.split(':').map(Number);
@@ -283,46 +268,46 @@
     return String(Math.floor(total / 60) % 24).padStart(2,'0') + ':' + String(total % 60).padStart(2,'0');
   }
 
-  // ============ LOCALSTORAGE ============
+  async function syncStatusToTeamApp() {
+    const workerId = localStorage.getItem('agendaUser');
+    if (!workerId || workerId === '__admin__') return;
 
-  const STORAGE_KEY  = 'agenda_events';
-  const STORAGE_NEXT = 'agenda_nextId';
+    const todayStr = today.toISOString().slice(0, 10);
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
-  function saveToStorage() {
-    localStorage.setItem(STORAGE_KEY,  JSON.stringify(events));
-    localStorage.setItem(STORAGE_NEXT, String(nextId));
-  }
+    const active = events.filter(ev => {
+      if (ev.done || ev.date !== todayStr) return false;
+      if (!ev.time) return ev.type === 'tarea' || ev.type === 'deadline';
+      const [h, m] = ev.time.split(':').map(Number);
+      const evMin = h * 60 + m;
+      return evMin <= nowMinutes && nowMinutes <= evMin + 120;
+    });
 
-  function loadFromStorage() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const nid = localStorage.getItem(STORAGE_NEXT);
-      if (raw) {
-        events = JSON.parse(raw);
-        nextId = nid ? parseInt(nid, 10) : events.reduce((m,e) => Math.max(m,e.id), 0) + 1;
-        return true;
+      let status = 'oficina', place = '', returnTime = '', note = '', fromAgenda = false;
+      if (active.length > 0) {
+        const ev = active[0];
+        status = TYPE_TO_STATUS[ev.type] || 'ausente';
+        note = `${TYPE_TO_NOTE[ev.type]}: ${ev.title}`;
+        returnTime = ev.time ? addMinutes(ev.time, 120) : '';
+        fromAgenda = true;
+      } else {
+        // Solo resetea si el estado actual venía de la agenda
+        const res = await fetch(`${SB_URL}/rest/v1/team_status?worker_id=eq.${workerId}`, { headers: sbHeaders() });
+        const cur = await res.json();
+        if (!cur[0] || !cur[0].from_agenda) return;
       }
-    } catch(e) { console.warn('Error cargando datos:', e); }
-    return false;
+      await fetch(`${SB_URL}/rest/v1/team_status`, {
+        method: 'POST',
+        headers: { ...sbHeaders(), 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({ worker_id: workerId, status, place, return_time: returnTime, note, from_agenda: fromAgenda, updated_at: new Date().toISOString() })
+      });
+    } catch(e) { console.warn('Error sincronizando estado:', e); }
   }
-
-  const SAMPLE_EVENTS = [
-    { id:1, title:'Kickoff Q3 con ventas',       date: offset(0), time:'09:00', type:'reunion',  priority:'high', notes:'Sala B, planta 2', done:false },
-    { id:2, title:'Entregar propuesta cliente X', date: offset(0), time:'17:00', type:'deadline', priority:'high', notes:'Enviar por correo',  done:false },
-    { id:3, title:'Revisar informe mensual',      date: offset(0), time:'11:30', type:'tarea',    priority:'med',  notes:'',                  done:false },
-    { id:4, title:'Llamada con proveedor',        date: offset(1), time:'10:00', type:'reunion',  priority:'low',  notes:'',                  done:false },
-    { id:5, title:'Actualizar documentación',     date: offset(1), time:'',      type:'tarea',    priority:'med',  notes:'',                  done:false },
-    { id:6, title:'Cita médica',                  date: offset(2), time:'16:00', type:'personal', priority:'low',  notes:'',                  done:false },
-  ];
 
   let events = [];
-  let nextId = 7;
-
-  if (!loadFromStorage()) {
-    events = SAMPLE_EVENTS;
-    nextId = 7;
-    saveToStorage();
-  }
+  let nextId = 1;
 
   function offset(days) {
     const d = new Date(today);
@@ -519,15 +504,20 @@
     });
   }
 
-  function toggleDone(id) {
+  async function toggleDone(id) {
     const ev = events.find(x => x.id === id);
-    if (ev) { ev.done = !ev.done; saveToStorage(); syncStatusToTeamApp(); renderEvents(); }
+    if (!ev) return;
+    ev.done = !ev.done;
+    ev._exists = true;
+    await saveEventToSupabase(ev);
+    await syncStatusToTeamApp();
+    renderEvents();
   }
 
-  function quickDelete(id) {
+  async function quickDelete(id) {
+    await deleteEventFromSupabase(id);
     events = events.filter(x => x.id !== id);
-    saveToStorage();
-    syncStatusToTeamApp();
+    await syncStatusToTeamApp();
     renderMiniCal();
     renderEvents();
   }
@@ -572,12 +562,13 @@
     if (e.target === document.getElementById('modal-bg')) closeModal();
   }
 
-  function saveEvent() {
+  async function saveEvent() {
     const title = document.getElementById('ev-title').value.trim();
     if (!title) { document.getElementById('ev-title').focus(); return; }
 
     const ev = {
-      id:       editingId || nextId++,
+      id:       editingId || null,
+      _exists:  !!editingId,
       title,
       date:     document.getElementById('ev-date').value || selectedDate,
       time:     document.getElementById('ev-time').value,
@@ -587,6 +578,8 @@
       done:     editingId ? events.find(x => x.id === editingId).done : false
     };
 
+    await saveEventToSupabase(ev);
+
     if (editingId) {
       const idx = events.findIndex(x => x.id === editingId);
       events[idx] = ev;
@@ -594,19 +587,18 @@
       events.push(ev);
     }
 
-    saveToStorage();
-    syncStatusToTeamApp();
+    await syncStatusToTeamApp();
     closeModal();
     renderMiniCal();
     renderEvents();
   }
 
-  function deleteEvent() {
+  async function deleteEvent() {
     if (!editingId) return;
     if (!confirm('¿Eliminar este evento?')) return;
+    await deleteEventFromSupabase(editingId);
     events = events.filter(x => x.id !== editingId);
-    saveToStorage();
-    syncStatusToTeamApp();
+    await syncStatusToTeamApp();
     closeModal();
     renderMiniCal();
     renderEvents();
@@ -620,25 +612,26 @@
   function changeWorker(wid) {
     if (wid) localStorage.setItem('agendaUser', wid);
     else localStorage.removeItem('agendaUser');
-    syncStatusToTeamApp();
+    events = [];
+    renderEvents();
+    loadFromSupabase();
   }
 
   // ============ INIT ============
 
   renderMiniCal();
   renderHeader();
-  renderEvents();
 
-  // Preselecciona el agente si ya estaba guardado en la app de equipo
   const savedWorker = localStorage.getItem('agendaUser');
   if (savedWorker && savedWorker !== '__admin__') {
     const sel = document.getElementById('worker-selector');
     if (sel) sel.value = savedWorker;
   }
 
+  loadFromSupabase();
   syncStatusToTeamApp();
 
-  // Sincroniza cada 5 minutos para reflejar eventos que empiezan/terminan
+  // Sincroniza cada 5 minutos
   setInterval(() => { today = new Date(); syncStatusToTeamApp(); }, 5 * 60 * 1000);
 </script>
 
