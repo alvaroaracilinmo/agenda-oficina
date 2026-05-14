@@ -159,7 +159,7 @@ const WORKERS = [
 ];
 
 const ADMIN_PIN = '1234';
-const STATUS_LABELS = {oficina:'En oficina', visita:'En visita', camino:'De camino', ausente:'Ausente', reunido:'En oficina, reunido'};
+const STATUS_LABELS = {oficina:'En oficina', visita:'En visita', camino:'De camino', ausente:'Ausente', reunido:'Reunión en Oficina'};
 const STATUS_BADGE  = {oficina:'b-oficina',  visita:'b-visita',  camino:'b-camino',  ausente:'b-ausente', reunido:'b-reunido'};
 
 // ============ SUPABASE ============
@@ -202,9 +202,47 @@ async function syncSave(workerId, statusData) {
         updated_at: new Date().toISOString()
       })
     });
-    // BroadcastChannel para actualizar otras pestañas en tiempo real
     try { new BroadcastChannel('agenda').postMessage('refresh'); } catch(e) {}
   } catch(e) { console.warn('Error guardando estado:', e); }
+}
+
+async function saveHistory(entry) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/team_history`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({
+        worker_id:   entry.workerId,
+        worker_name: entry.who,
+        status:      entry.status,
+        place:       entry.place || '',
+        return_time: entry.returnTime || '',
+        note:        entry.note || '',
+        edited_by:   entry.editedBy || ''
+      })
+    });
+  } catch(e) { console.warn('Error guardando historial:', e); }
+}
+
+async function loadHistory() {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const res = await fetch(
+      `${SB_URL}/rest/v1/team_history?created_at=gte.${today}T00:00:00&order=created_at.desc&limit=60`,
+      { headers: sbHeaders() }
+    );
+    const data = await res.json();
+    history = data.map(r => ({
+      time:     new Date(r.created_at).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'}),
+      who:      r.worker_name,
+      workerId: r.worker_id,
+      status:   r.status,
+      place:    r.place,
+      returnTime: r.return_time,
+      note:     r.note,
+      editedBy: r.edited_by || null
+    }));
+  } catch(e) { console.warn('Error cargando historial:', e); }
 }
 
 let currentUser = null;
@@ -295,6 +333,7 @@ function renderTopBar() {
 
 async function loadData() {
   await syncLoad();
+  await loadHistory();
   if (isAdmin) renderAdmin(); else renderApp();
   const now = new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
   const el = document.getElementById(isAdmin ? 'adminLastUpdated' : 'lastUpdated');
@@ -312,7 +351,7 @@ function renderApp() {
   if (me.returnTime) det += `Regresa: <span>${me.returnTime}</span><br>`;
   if (me.note) det += `<span>${me.note}</span>`;
   document.getElementById('myDetail').innerHTML = det;
-  document.getElementById('btnBack').style.display = me.status !== 'oficina' ? 'block' : 'none';
+  document.getElementById('btnBack').style.display = (me.status !== 'oficina' && me.status !== 'reunido') ? 'block' : 'none';
   renderSummary('summaryRow');
   document.getElementById('teamGrid').innerHTML = WORKERS.filter(w => w.id !== currentUser.id).map(w => workerCard(w, false)).join('');
   renderHistory('historyList');
@@ -340,7 +379,7 @@ function workerCard(w, adminMode) {
         ${ws.returnTime ? `<div>Regresa: <span>${ws.returnTime}</span></div>` : ''}
       </div>
       ${ws.note ? `<div class="t-note">${ws.fromAgenda ? '📅 ' : ''}${ws.note}</div>` : ''}
-      ${adminMode && ws.status !== 'oficina' ? `<button class="btn-quick-back" onclick="adminQuickBack('${w.id}')">Marcar en oficina</button>` : ''}
+      ${adminMode && ws.status !== 'oficina' && ws.status !== 'reunido' ? `<button class="btn-quick-back" onclick="adminQuickBack('${w.id}')">Marcar en oficina</button>` : ''}
     </div>
   `;
 }
@@ -431,14 +470,11 @@ async function saveStatus() {
 
   const w = WORKERS.find(x => x.id === wid);
   const now = new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-  history.unshift({
-    time: now, who: w.name, status: selectedStatus,
-    place, returnTime, note,
-    editedBy: isAdmin ? 'admin' : null
-  });
-  if (history.length > 60) history = history.slice(0,60);
 
   await syncSave(wid, statusData);
+  await saveHistory({ workerId: wid, who: w.name, status: selectedStatus, place, returnTime, note, editedBy: isAdmin ? 'admin' : '' });
+  await loadHistory();
+
   closeForm();
   if (isAdmin) renderAdmin(); else renderApp();
   const el = document.getElementById(isAdmin ? 'adminLastUpdated' : 'lastUpdated');
@@ -450,9 +486,10 @@ async function quickBack() {
   const statusData = {status:'oficina', place:'', returnTime:'', note:'', fromAgenda:false, ts: Date.now()};
   teamState[currentUser.id] = statusData;
   const now = new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-  history.unshift({time:now, who:currentUser.name, status:'oficina', place:'', returnTime:'', note: prev?`Regresó de ${prev}`:'Regresó a la oficina'});
-  if (history.length > 60) history = history.slice(0,60);
+  const note = prev ? `Regresó de ${prev}` : 'Regresó a la oficina';
   await syncSave(currentUser.id, statusData);
+  await saveHistory({ workerId: currentUser.id, who: currentUser.name, status: 'oficina', place: '', returnTime: '', note });
+  await loadHistory();
   renderApp();
 }
 
@@ -462,9 +499,10 @@ async function adminQuickBack(wid) {
   const statusData = {status:'oficina', place:'', returnTime:'', note:'', fromAgenda:false, ts: Date.now()};
   teamState[wid] = statusData;
   const now = new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-  history.unshift({time:now, who:w.name, status:'oficina', place:'', returnTime:'', note: prev?`Regresó de ${prev}`:'Regresó a la oficina', editedBy:'admin'});
-  if (history.length > 60) history = history.slice(0,60);
+  const note = prev ? `Regresó de ${prev}` : 'Regresó a la oficina';
   await syncSave(wid, statusData);
+  await saveHistory({ workerId: wid, who: w.name, status: 'oficina', place: '', returnTime: '', note, editedBy: 'admin' });
+  await loadHistory();
   renderAdmin();
 }
 
