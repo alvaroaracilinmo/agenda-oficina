@@ -679,23 +679,28 @@ html, body {
   border-color: #993C1D;
   border-width: 1.5px;
 }
+
+.btn-home {
   padding: 6px 13px;
   border-radius: var(--radius-md);
   border: 0.5px solid var(--border-medium);
-  background: none;
+  background: var(--bg-secondary);
   color: var(--text-secondary);
   font-size: 13px;
   font-family: inherit;
+  font-weight: 500;
   text-decoration: none;
   display: flex;
   align-items: center;
   gap: 5px;
-  transition: background 0.12s, color 0.12s;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
 
 .btn-home:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-tertiary);
   color: var(--text-primary);
+  border-color: var(--border-strong);
 }
 
 .btn-home svg {
