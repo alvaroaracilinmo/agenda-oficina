@@ -1,24 +1,28 @@
 /* ===========================
-   Agenda del Equipo — Estilos
+   Aracil Inmobiliaria — Estilos
    =========================== */
 
 /* Variables */
 :root {
-  --bg: #f8f7f4;
-  --surface: #ffffff;
-  --border: rgba(0,0,0,0.1);
-  --border-md: rgba(0,0,0,0.18);
-  --text: #1a1a1a;
-  --text-secondary: #6b6b68;
-  --text-hint: #9a9a96;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --radius-pill: 99px;
-  --green-bg: #EAF3DE; --green-text: #27500A; --green-dot: #3B6D11;
-  --amber-bg: #FAEEDA; --amber-text: #633806; --amber-dot: #854F0B;
-  --blue-bg:  #E6F1FB; --blue-text:  #0C447C; --blue-dot:  #185FA5;
-  --gray-bg:  #F1EFE8; --gray-text:  #444441; --gray-dot:  #888780;
-  --red-bg:   #FAECEC; --red-text:   #7A1F1F; --red-dot:   #C0392B;
+  --bg:            #faf8f4;
+  --surface:       #ffffff;
+  --border:        rgba(176, 0, 0, 0.10);
+  --border-md:     rgba(176, 0, 0, 0.20);
+  --text:          #1a1208;
+  --text-secondary:#5a4e38;
+  --text-hint:     #9a8878;
+  --radius:        12px;
+  --radius-sm:     8px;
+  --radius-pill:   99px;
+  --accent:        #b00000;
+  --accent-light:  #fdeaea;
+
+  /* Estados — colores intuitivos */
+  --green-bg:  #eaf5e4; --green-text: #2a6020; --green-dot: #5a9e40;
+  --amber-bg:  #fff0e0; --amber-text: #8b4000; --amber-dot: #e07820;
+  --blue-bg:   #fdeaea; --blue-text:  #7a0000; --blue-dot:  #c03030;
+  --gray-bg:   #f2ede8; --gray-text:  #5a4e38; --gray-dot:  #9a8060;
+  --red-bg:    #fdeaea; --red-text:   #7a0000; --red-dot:   #b00000;
 }
 
 /* Reset */
@@ -170,8 +174,8 @@ body {
 }
 
 .btn-logout:hover {
-  background: var(--bg);
-  color: var(--text-secondary);
+  background: var(--accent-light);
+  color: var(--accent);
 }
 
 .content {
@@ -263,13 +267,33 @@ body {
 }
 
 .update-btn:hover {
-  background: #eceae4;
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .update-btn.green {
   background: var(--green-bg);
   color: var(--green-text);
   border-color: var(--green-dot);
+}
+
+.btn-quick-back {
+  margin-top: 8px;
+  width: 100%;
+  padding: 7px;
+  border-radius: var(--radius-sm);
+  border: 0.5px solid var(--green-dot);
+  background: var(--green-bg);
+  color: var(--green-text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.btn-quick-back:hover {
+  background: #f5ebb0;
 }
 
 /* ===========================
@@ -497,7 +521,7 @@ body {
   padding: 12px;
   border-radius: var(--radius-sm);
   border: none;
-  background: #1a1a1a;
+  background: var(--accent);
   color: #fff;
   font-size: 14px;
   font-weight: 500;
@@ -505,7 +529,7 @@ body {
 }
 
 .btn-save:hover {
-  background: #333;
+  background: #880000;
 }
 
 .btn-cancel {
@@ -628,13 +652,14 @@ body {
 }
 
 .admin-login-btn:hover {
-  background: var(--bg);
-  color: var(--text);
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .admin-top-bar {
-  background: #1a1a1a;
-  border-bottom-color: rgba(255,255,255,0.1);
+  background: #b00000;
+  border-bottom-color: rgba(255,255,255,0.15);
 }
 
 .admin-top-bar .top-name {
@@ -642,24 +667,24 @@ body {
 }
 
 .admin-top-role {
-  color: rgba(255,255,255,0.5) !important;
+  color: rgba(255,255,255,0.6) !important;
 }
 
 .admin-top-bar .btn-logout {
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.5);
 }
 
 .admin-top-bar .btn-logout:hover {
-  background: rgba(255,255,255,0.08);
-  color: rgba(255,255,255,0.8);
+  background: rgba(255,255,255,0.12);
+  color: #ffffff;
 }
 
 .admin-av {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #3a3a3a;
-  color: rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.9);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -672,15 +697,15 @@ body {
   font-size: 12px;
   padding: 6px 12px;
   border-radius: var(--radius-sm);
-  border: 0.5px solid rgba(255,255,255,0.2);
-  background: rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.8);
+  border: 0.5px solid rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.9);
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .btn-add-worker:hover {
-  background: rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.22);
 }
 
 .admin-grid {
@@ -736,7 +761,7 @@ body {
   font-weight: 500;
   padding: 1px 6px;
   border-radius: 99px;
-  background: #1a1a1a;
+  background: var(--accent);
   color: #fff;
   vertical-align: middle;
   margin: 0 2px;

@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="imgs/favicon/favicon-32x32.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>A&A - Agenda Aracil Inmo</title>
   <link rel="stylesheet" href="agenda.css">
@@ -91,15 +92,15 @@
 
       <!-- Stats -->
       <div class="stats-bar" role="region" aria-label="Resumen">
-        <div class="stat-card">
+        <div class="stat-card total">
           <div class="stat-num" id="stat-total">0</div>
           <div class="stat-lbl">Total</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card pending">
           <div class="stat-num" id="stat-pending">0</div>
           <div class="stat-lbl">Pendientes</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card done">
           <div class="stat-num" id="stat-done">0</div>
           <div class="stat-lbl">Completadas</div>
         </div>
@@ -202,7 +203,7 @@
   const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const DAYS_ES = ['L','M','X','J','V','S','D'];
 
-  const TYPE_COLORS  = { reunion:'#185FA5', tarea:'#3B6D11', visita_cli:'#D85A30', personal:'#534AB7' };
+  const TYPE_COLORS  = { reunion:'#e8c0c0', tarea:'#e0d080', visita_cli:'#a8d898', personal:'#c8b8f0' };
   const TYPE_LABELS  = { reunion:'Reunión', tarea:'Tarea', visita_cli:'Visita', personal:'Personal' };
 
   let today      = new Date();
@@ -504,7 +505,7 @@
         .sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'))
         .forEach(ev => {
           const card = document.createElement('div');
-          card.className = 'event-card';
+          card.className = `event-card type-${ev.type}`;
           card.setAttribute('role', 'listitem');
 
           const prioClass = { high:'prio-high', med:'prio-med', low:'prio-low' }[ev.priority];
