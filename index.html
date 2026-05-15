@@ -48,19 +48,19 @@
 <!-- APP TRABAJADOR -->
 <div id="appScreen">
   <div class="top-bar">
-    <div class="top-left">
-      <div class="top-av" id="topAv"></div>
-      <div>
-        <div class="top-name" id="topName"></div>
-        <div class="top-role" id="topRole"></div>
+    <div class="top-row">
+      <div class="top-left">
+        <div class="top-av" id="topAv"></div>
+        <div>
+          <div class="top-name" id="topName"></div>
+          <div class="top-role" id="topRole"></div>
+        </div>
       </div>
-    </div>
-    <img src="imgs/logotipo-aracil-Transparente.png" alt="Aracil Inmobiliaria" style="height:28px;width:auto;opacity:0.85;">
-    <div style="display:flex;gap:8px;align-items:center">
-      <!--link para la página de la agenda-->
-      <a href="agenda.html" style="font-size:12px;color:var(--text-hint);text-decoration:none;padding:4px 8px;border-radius:8px;border:0.5px solid var(--border)">📅 Mi agenda</a>
-      <!--boton para cambiar de usuario-->
-      <button class="btn-logout" onclick="logout()">Cambiar</button>
+      <img class="top-logo" src="imgs/logotipo-aracil-Transparente.png" alt="Aracil Inmobiliaria">
+      <div class="top-actions">
+        <a href="agenda.html" class="btn-agenda">📅 Mi agenda</a>
+        <button class="btn-logout" onclick="logout()">Cambiar</button>
+      </div>
     </div>
   </div>
 
@@ -90,17 +90,20 @@
 <!-- APP ADMINISTRADOR -->
 <div id="adminScreen">
   <div class="top-bar admin-top-bar">
-    <div class="top-left">
-      <div class="top-av admin-av">AD</div>
-      <div>
-        <div class="top-name">Administrador</div>
-        <div class="top-role admin-top-role">Panel de control</div>
+    <div class="top-row">
+      <div class="top-left">
+        <div class="top-av admin-av">AD</div>
+        <div>
+          <div class="top-name">Administrador</div>
+          <div class="top-role admin-top-role">Panel de control</div>
+        </div>
       </div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button class="btn-add-worker" onclick="window.location.href='agenda.html'">📅 Ver agenda</button>
-      <button class="btn-add-worker" onclick="openForm('__pick__')">Editar estado</button>
-      <button class="btn-logout" onclick="logout()">Salir</button>
+      <img class="top-logo" src="imgs/logotipo-aracil-Transparente.png" alt="Aracil Inmobiliaria" style="filter:brightness(0) invert(1);opacity:0.9;">
+      <div class="top-actions">
+        <button class="btn-add-worker" onclick="window.location.href='agenda.html'">📅 Ver agenda</button>
+        <button class="btn-add-worker" onclick="openForm('__pick__')">Editar estado</button>
+        <button class="btn-logout" onclick="logout()">Salir</button>
+      </div>
     </div>
   </div>
 
