@@ -766,3 +766,107 @@ body {
   vertical-align: middle;
   margin: 0 2px;
 }
+
+/* ===========================
+   RESPONSIVE MÓVIL
+   =========================== */
+@media (max-width: 480px) {
+
+  /* Top bar: apila en dos filas si no cabe */
+  .top-bar {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .top-left {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .top-name {
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+  }
+
+  /* Botones de la barra superior más compactos */
+  .top-bar > div:last-child {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .btn-add-worker {
+    font-size: 11px;
+    padding: 5px 9px;
+  }
+
+  .btn-logout {
+    font-size: 11px;
+    padding: 4px 7px;
+  }
+
+  /* Logo en top bar más pequeño */
+  .top-bar img {
+    height: 22px !important;
+  }
+
+  /* Contenido con menos padding */
+  .content {
+    padding: 12px;
+  }
+
+  /* Grid del equipo: una sola columna */
+  .team-grid,
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Pills del resumen */
+  .summary {
+    gap: 6px;
+  }
+
+  .sum-pill {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+
+  /* Tarjeta Mi estado */
+  .my-card {
+    padding: 12px;
+  }
+
+  .my-status-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  /* Modal desde abajo en móvil */
+  .modal {
+    padding: 16px;
+  }
+
+  .modal-title {
+    font-size: 15px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Login */
+  .login-card {
+    padding: 1.5rem;
+  }
+
+  /* Botones de estado en 2 columnas */
+  .status-btns {
+    grid-template-columns: 1fr 1fr;
+  }
+}

@@ -937,9 +937,69 @@ textarea.form-input {
   .sidebar {
     border-right: none;
     border-bottom: 0.5px solid var(--border-light);
+    padding: 1rem;
+    gap: 1rem;
   }
 
   .form-row {
     grid-template-columns: 1fr;
+  }
+
+  /* Cabecera principal más compacta */
+  .main-header {
+    padding: 0.875rem 1rem;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .main-date-big {
+    font-size: 16px;
+  }
+
+  .btn-add, .btn-home {
+    font-size: 12px;
+    padding: 5px 10px;
+  }
+
+  /* Stats en una fila compacta */
+  .stats-bar {
+    padding: 0.625rem 1rem;
+    gap: 6px;
+  }
+
+  .stat-num {
+    font-size: 18px;
+  }
+
+  .stat-lbl {
+    font-size: 10px;
+  }
+
+  /* Búsqueda */
+  .search-wrap {
+    padding: 0.625rem 1rem 0.5rem;
+  }
+
+  /* Lista de eventos */
+  .events-list {
+    padding: 0.5rem 1rem 1rem;
+  }
+
+  /* Mini calendario más compacto */
+  .cal-day {
+    font-size: 11px;
+    padding: 4px 1px;
+  }
+
+  /* Modal a pantalla completa en móvil */
+  .modal {
+    width: 100%;
+    max-width: 100%;
+    padding: 1.25rem;
+  }
+
+  /* Ocultar texto del botón Inicio en móvil si es muy pequeño */
+  @media (max-width: 360px) {
+    .btn-home span { display: none; }
   }
 }
