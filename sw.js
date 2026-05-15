@@ -1,12 +1,12 @@
 const CACHE_NAME = 'aracil-v1';
 const ASSETS = [
-  '/index.html',
-  '/agenda.html',
-  '/agenda.css',
-  '/styles.css',
-  '/manifest.json',
-  '/imgs/favicon/favicon.png',
-  '/imgs/logotipo-aracil-Transparente.png'
+  '/agenda-oficina/index.html',
+  '/agenda-oficina/agenda.html',
+  '/agenda-oficina/agenda.css',
+  '/agenda-oficina/styles.css',
+  '/agenda-oficina/manifest.json',
+  '/agenda-oficina/imgs/favicon/favicon-192x192.png',
+  '/agenda-oficina/imgs/logotipo-aracil-Transparente.png'
 ];
 
 // Instalación: guarda los archivos en caché
