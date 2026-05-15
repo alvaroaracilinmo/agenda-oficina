@@ -160,7 +160,17 @@ const WORKERS = [
   {id:'jorge',  name:'Jorge Aracil',   role:'Jefe',      color:'#FAECE7', text:'#712B13'}
 ];
 
-const ADMIN_PIN = '1234';
+// SHA-256 del PIN admin. Para cambiar el PIN, genera el hash de tu nueva clave en:
+// https://emn178.github.io/online-tools/sha256.html  (hash de "1234" por defecto)
+const ADMIN_PIN_HASH = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4';
+let pinAttempts = 0;
+let pinLockedUntil = 0;
+
+async function hashPin(pin) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
 const STATUS_LABELS = {oficina:'En oficina', visita:'En visita', camino:'De camino', ausente:'Ausente', reunido:'Reunión en Oficina'};
 const STATUS_BADGE  = {oficina:'b-oficina',  visita:'b-visita',  camino:'b-camino',  ausente:'b-ausente', reunido:'b-reunido'};
 
@@ -275,14 +285,35 @@ function showAdminPin() {
 
 function closePinModal() { document.getElementById('pinModal').classList.remove('open'); }
 
-function checkPin() {
-  if (document.getElementById('pinInput').value === ADMIN_PIN) {
+async function checkPin() {
+  const now = Date.now();
+  const errEl = document.getElementById('pinError');
+
+  if (now < pinLockedUntil) {
+    const secsLeft = Math.ceil((pinLockedUntil - now) / 1000);
+    errEl.textContent = `Demasiados intentos. Espera ${secsLeft}s.`;
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const inputHash = await hashPin(document.getElementById('pinInput').value);
+
+  if (inputHash === ADMIN_PIN_HASH) {
+    pinAttempts = 0;
     closePinModal();
     loginAdmin();
   } else {
-    document.getElementById('pinError').style.display = 'block';
+    pinAttempts++;
     document.getElementById('pinInput').value = '';
     document.getElementById('pinInput').focus();
+    if (pinAttempts >= 3) {
+      pinLockedUntil = Date.now() + 60000;
+      pinAttempts = 0;
+      errEl.textContent = 'Demasiados intentos. Espera 60 segundos.';
+    } else {
+      errEl.textContent = `Contraseña incorrecta (${pinAttempts}/3)`;
+    }
+    errEl.style.display = 'block';
   }
 }
 

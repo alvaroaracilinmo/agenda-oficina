@@ -30,6 +30,22 @@
         <div id="worker-selector-hint" style="font-size:10px;color:var(--text-tertiary);margin-top:4px;">Tu estado en la app del equipo se actualizará automáticamente.</div>
       </div>
 
+      <!-- Selector de trabajador (solo admin) -->
+      <div id="admin-worker-picker" style="display:none;background:var(--bg-tertiary);border-radius:var(--radius-md);padding:8px 10px;">
+        <div style="font-size:10.5px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Viendo agenda de</div>
+        <select id="admin-worker-select" onchange="changeAdminWorker(this.value)" style="width:100%;font-size:12px;padding:5px 6px;border-radius:6px;border:0.5px solid var(--border-color);background:white;color:var(--text-primary);cursor:pointer;">
+          <option value="">— Todos los trabajadores —</option>
+          <option value="clara">Clara Aracil</option>
+          <option value="Leila">Leila Marti</option>
+          <option value="Aranza">Aranza Aracil</option>
+          <option value="Yessi">Yessica Molina</option>
+          <option value="pedro">Pedro González</option>
+          <option value="alvaro">Álvaro Olcina</option>
+          <option value="jorge">Jorge Aracil</option>
+        </select>
+        <div id="admin-worker-hint" style="font-size:10px;color:var(--text-tertiary);margin-top:5px;transition:color .2s;">Selecciona un trabajador para crear o editar sus eventos.</div>
+      </div>
+
       <!-- Mini calendario -->
       <div class="mini-cal">
         <div class="cal-nav">
@@ -69,6 +85,14 @@
           <span class="count-badge" id="cnt-personal">0</span>
         </div>
       </nav>
+
+      <!-- Recordatorios -->
+      <div style="padding:4px 0 0;">
+        <div class="filter-label">Recordatorios</div>
+        <button id="notif-btn" onclick="enableNotifications()" style="width:100%;font-size:11.5px;padding:7px 10px;border-radius:8px;border:0.5px solid var(--border-color);background:var(--bg-tertiary);cursor:pointer;color:var(--text-secondary);text-align:left;display:flex;align-items:center;gap:7px;transition:all .15s;">
+          <span id="notif-icon">🔔</span><span id="notif-btn-text">Activar notificaciones</span>
+        </button>
+      </div>
 
     </aside>
 
@@ -214,6 +238,7 @@
   let editingId    = null;
   let events       = [];
   let nextId       = 1;
+  let adminTargetWorker = null; // null = ver todos (solo admin)
 
   // ============ SUPABASE ============
 
@@ -224,13 +249,25 @@
     return { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY };
   }
 
+  function changeAdminWorker(wid) {
+    adminTargetWorker = wid || null;
+    const hint = document.getElementById('admin-worker-hint');
+    hint.style.color = '';
+    hint.textContent = adminTargetWorker
+      ? `Creando y editando eventos de ${WORKER_NAMES[adminTargetWorker]}.`
+      : 'Selecciona un trabajador para crear o editar sus eventos.';
+    loadFromSupabase();
+  }
+
   async function loadFromSupabase() {
     const workerId = localStorage.getItem('agendaUser');
     if (!workerId) { events = []; renderMiniCal(); renderEvents(); return; }
     try {
       let url;
       if (workerId === '__admin__') {
-        url = `${SB_URL}/rest/v1/agenda_events?order=date.asc`;
+        url = adminTargetWorker
+          ? `${SB_URL}/rest/v1/agenda_events?worker_id=eq.${adminTargetWorker}&order=date.asc`
+          : `${SB_URL}/rest/v1/agenda_events?order=date.asc`;
       } else {
         url = `${SB_URL}/rest/v1/agenda_events?worker_id=eq.${workerId}&order=date.asc`;
       }
@@ -245,11 +282,13 @@
     } catch(e) { console.warn('Error cargando agenda:', e); events = []; }
     renderMiniCal();
     renderEvents();
+    scheduleReminders();
   }
 
   async function saveEventToSupabase(ev) {
-    const workerId = localStorage.getItem('agendaUser');
-    if (!workerId) return;
+    const sessionUser = localStorage.getItem('agendaUser');
+    if (!sessionUser) return;
+    const workerId = (sessionUser === '__admin__' && adminTargetWorker) ? adminTargetWorker : sessionUser;
     const body = { worker_id: workerId, title: ev.title, date: ev.date, time: ev.time,
       type: ev.type, priority: ev.priority, notes: ev.notes, done: ev.done };
     if (ev.id && ev._exists) {
@@ -555,6 +594,7 @@
     await saveEventToSupabase(ev);
     await syncStatusToTeamApp();
     renderEvents();
+    scheduleReminders();
   }
 
   async function quickDelete(id) {
@@ -568,6 +608,19 @@
   // ============ MODAL ============
 
   function openModal(id) {
+    // Admin sin trabajador seleccionado no puede crear eventos
+    if (!id && localStorage.getItem('agendaUser') === '__admin__' && !adminTargetWorker) {
+      const hint = document.getElementById('admin-worker-hint');
+      hint.style.color = '#A32D2D';
+      hint.textContent = '⚠ Selecciona un trabajador antes de crear un evento.';
+      document.getElementById('admin-worker-picker').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      setTimeout(() => {
+        hint.style.color = '';
+        hint.textContent = 'Selecciona un trabajador para crear o editar sus eventos.';
+      }, 3000);
+      return;
+    }
+
     editingId = id || null;
     const btnDel = document.getElementById('btn-delete');
 
@@ -641,6 +694,7 @@
     closeModal();
     renderMiniCal();
     renderEvents();
+    scheduleReminders();
   }
 
   async function deleteEvent() {
@@ -652,6 +706,7 @@
     closeModal();
     renderMiniCal();
     renderEvents();
+    scheduleReminders();
   }
 
   // Cerrar modal con Escape
@@ -674,9 +729,112 @@
     }
     if (hint) {
       hint.textContent = wid === '__admin__'
-        ? 'Modo administrador: ves los eventos de todo el equipo.'
+        ? 'Modo administrador.'
         : 'Tu estado en la app del equipo se actualizará automáticamente.';
     }
+    if (wid === '__admin__') {
+      document.getElementById('admin-worker-picker').style.display = '';
+    }
+  }
+
+  // ============ RECORDATORIOS ============
+
+  let reminderTimeouts = [];
+
+  function clearReminders() {
+    reminderTimeouts.forEach(t => clearTimeout(t));
+    reminderTimeouts = [];
+  }
+
+  function notifAppEnabled() {
+    return localStorage.getItem('notifEnabled') !== 'false';
+  }
+
+  function updateNotifBtn() {
+    const btn  = document.getElementById('notif-btn');
+    const icon = document.getElementById('notif-icon');
+    const txt  = document.getElementById('notif-btn-text');
+    if (!btn || !('Notification' in window)) return;
+
+    const perm    = Notification.permission;
+    const enabled = notifAppEnabled();
+
+    if (perm === 'denied') {
+      icon.textContent      = '🔕';
+      txt.textContent       = 'Notificaciones bloqueadas';
+      btn.style.color       = '#A32D2D';
+      btn.style.borderColor = '#A32D2D';
+      btn.style.cursor      = 'default';
+      btn.onclick           = null;
+    } else if (perm === 'granted' && enabled) {
+      icon.textContent      = '🔔';
+      txt.textContent       = 'Desactivar notificaciones';
+      btn.style.color       = '#3B6D11';
+      btn.style.borderColor = '#3B6D11';
+      btn.style.cursor      = 'pointer';
+      btn.onclick           = disableNotifications;
+    } else {
+      // default o granted-pero-desactivado
+      icon.textContent      = '🔔';
+      txt.textContent       = 'Activar notificaciones';
+      btn.style.color       = '';
+      btn.style.borderColor = '';
+      btn.style.cursor      = 'pointer';
+      btn.onclick           = enableNotifications;
+    }
+  }
+
+  async function enableNotifications() {
+    if (!('Notification' in window)) { alert('Tu navegador no soporta notificaciones.'); return; }
+    await Notification.requestPermission();
+    localStorage.setItem('notifEnabled', 'true');
+    updateNotifBtn();
+    scheduleReminders();
+  }
+
+  function disableNotifications() {
+    localStorage.setItem('notifEnabled', 'false');
+    clearReminders();
+    updateNotifBtn();
+  }
+
+  function scheduleReminders() {
+    clearReminders();
+    if (!('Notification' in window) || Notification.permission !== 'granted' || !notifAppEnabled()) return;
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+
+    events.forEach(ev => {
+      if (ev.done || ev.date !== todayStr || !ev.time) return;
+
+      const [h, m]  = ev.time.split(':').map(Number);
+      const evStamp = new Date().setHours(h, m, 0, 0);
+
+      // 15 minutos antes
+      const msBefore = evStamp - 15 * 60 * 1000 - now;
+      if (msBefore > 0) {
+        reminderTimeouts.push(setTimeout(() => {
+          new Notification(`En 15 min: ${ev.title}`, {
+            body: `${TYPE_LABELS[ev.type]} · ${ev.time}${ev.notes ? '\n' + ev.notes : ''}`,
+            icon: 'imgs/favicon/android-chrome-192x192.png',
+            tag:  `before-${ev.id}`
+          });
+        }, msBefore));
+      }
+
+      // Al inicio del evento
+      const msAt = evStamp - now;
+      if (msAt > 0) {
+        reminderTimeouts.push(setTimeout(() => {
+          new Notification(`¡Ahora! ${ev.title}`, {
+            body: `${TYPE_LABELS[ev.type]} · ${ev.time}`,
+            icon: 'imgs/favicon/android-chrome-192x192.png',
+            tag:  `now-${ev.id}`
+          });
+        }, msAt));
+      }
+    });
   }
 
   // ============ INIT ============
@@ -690,12 +848,13 @@
     window.location.href = 'index.html';
   } else {
     initWorker();
+    updateNotifBtn();
     loadFromSupabase();
     syncStatusToTeamApp();
   }
 
   // Sincroniza cada 5 minutos
-  setInterval(() => { today = new Date(); syncStatusToTeamApp(); }, 5 * 60 * 1000);
+  setInterval(() => { today = new Date(); syncStatusToTeamApp(); scheduleReminders(); }, 5 * 60 * 1000);
 </script>
 
 </body>
