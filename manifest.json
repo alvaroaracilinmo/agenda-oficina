@@ -1,0 +1,27 @@
+{
+  "name": "A&A - Aracil Inmobiliaria",
+  "short_name": "Aracil",
+  "description": "Gestión de equipo y agenda de Aracil Inmobiliaria",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#faf8f4",
+  "theme_color": "#b00000",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "imgs/favicon/favicon.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "imgs/favicon/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "imgs/favicon/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <link rel="icon" type="image/png" href="imgs/favicon/favicon-32x32.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#b00000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="A&A Agenda">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="imgs/favicon/favicon-32x32.png">
   <title>A&A - Agenda Aracil Inmo</title>
   <link rel="stylesheet" href="agenda.css">
 </head>
@@ -855,6 +861,11 @@
 
   // Sincroniza cada 5 minutos
   setInterval(() => { today = new Date(); syncStatusToTeamApp(); scheduleReminders(); }, 5 * 60 * 1000);
+
+  // Registro PWA
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW error:', e));
+  }
 </script>
 
 </body>
