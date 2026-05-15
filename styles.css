@@ -135,8 +135,10 @@ body {
 .top-logo {
   height: 28px;
   width: auto;
+  max-width: 160px;
   opacity: 0.9;
   flex-shrink: 0;
+  object-fit: contain;
 }
 
 .top-row {
@@ -157,8 +159,9 @@ body {
 
   .top-logo {
     order: -1;
-    width: 100%;
+    width: auto;
     height: 24px;
+    max-width: 140px;
     object-fit: contain;
     object-position: left;
     margin-bottom: 4px;
