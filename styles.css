@@ -958,33 +958,3 @@ body {
   border-color: var(--accent);
 }
 
-.top-logo {
-  flex-shrink: 0;
-}
-
-@media (max-width: 480px) {
-  .top-logo {
-    display: none;
-  }
-
-  .btn-agenda {
-    font-size: 11px;
-    padding: 4px 7px;
-  }
-
-  .top-bar {
-    gap: 6px;
-  }
-
-  .top-left {
-    flex: 1;
-    overflow: hidden;
-  }
-
-  .top-name {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 130px;
-  }
-}
