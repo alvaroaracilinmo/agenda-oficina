@@ -154,17 +154,15 @@ body {
   }
 
   .top-row {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
   }
 
   .top-logo {
-    order: -1;
-    width: auto;
     height: 24px;
     max-width: 140px;
-    object-fit: contain;
-    object-position: left;
-    margin-bottom: 4px;
+    display: block;
   }
 
   .top-left {
@@ -183,6 +181,19 @@ body {
   .top-actions {
     flex-shrink: 0;
   }
+
+  /* Fila inferior: usuario y botones en la misma línea */
+  .top-row {
+    display: grid;
+    grid-template-areas:
+      "logo logo"
+      "user actions";
+    grid-template-columns: 1fr auto;
+  }
+
+  .top-logo     { grid-area: logo; }
+  .top-left     { grid-area: user; }
+  .top-actions  { grid-area: actions; align-self: center; }
 }
 
 .top-left {
