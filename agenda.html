@@ -27,15 +27,16 @@
         <div style="font-size:10.5px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Conectado como</div>
         <select id="worker-selector" onchange="changeWorker(this.value)" style="width:100%;padding:5px 8px;border-radius:var(--radius-sm);border:0.5px solid var(--border-medium);background:var(--bg-primary);color:var(--text-primary);font-size:12px;font-family:inherit;outline:none;">
           <option value="">— Sin conectar —</option>
+          <option value="__admin__">👤 Administrador</option>
           <option value="clara">Clara Aracil</option>
           <option value="Leila">Leila Marti</option>
           <option value="Aranza">Aranza Aracil</option>
           <option value="Yessi">Yessica Molina</option>
           <option value="pedro">Pedro González</option>
-          <option value="alvaro">Alvaro Olcina</option>
+          <option value="alvaro">Álvaro Olcina</option>
           <option value="jorge">Jorge Aracil</option>
         </select>
-        <div style="font-size:10px;color:var(--text-tertiary);margin-top:5px;">Tu estado en la app del equipo se actualizará automáticamente.</div>
+        <div id="worker-selector-hint" style="font-size:10px;color:var(--text-tertiary);margin-top:5px;">Tu estado en la app del equipo se actualizará automáticamente.</div>
       </div>
 
       <!-- Mini calendario -->
@@ -232,13 +233,20 @@
 
   async function loadFromSupabase() {
     const workerId = localStorage.getItem('agendaUser');
-    if (!workerId || workerId === '__admin__') { events = []; renderMiniCal(); renderEvents(); return; }
+    if (!workerId) { events = []; renderMiniCal(); renderEvents(); return; }
     try {
-      const res = await fetch(`${SB_URL}/rest/v1/agenda_events?worker_id=eq.${workerId}&order=date.asc`, { headers: sbHeaders() });
+      let url;
+      if (workerId === '__admin__') {
+        url = `${SB_URL}/rest/v1/agenda_events?order=date.asc`;
+      } else {
+        url = `${SB_URL}/rest/v1/agenda_events?worker_id=eq.${workerId}&order=date.asc`;
+      }
+      const res = await fetch(url, { headers: sbHeaders() });
       const data = await res.json();
       events = data.map(r => ({
         id: r.id, title: r.title, date: r.date, time: r.time || '',
-        type: r.type, priority: r.priority, notes: r.notes || '', done: r.done
+        type: r.type, priority: r.priority, notes: r.notes || '', done: r.done,
+        worker_id: r.worker_id
       }));
       nextId = events.length ? Math.max(...events.map(e => e.id)) + 1 : 1;
     } catch(e) { console.warn('Error cargando agenda:', e); events = []; }
@@ -510,6 +518,9 @@
 
           const prioClass = { high:'prio-high', med:'prio-med', low:'prio-low' }[ev.priority];
 
+          const isAdmin = localStorage.getItem('agendaUser') === '__admin__';
+          const workerNames = {clara:'Clara Aracil', Leila:'Leila Marti', Aranza:'Aranza Aracil', Yessi:'Yessica Molina', pedro:'Pedro González', alvaro:'Álvaro Olcina', jorge:'Jorge Aracil'};
+
           card.innerHTML = `
             <div class="event-check ${ev.done ? 'done' : ''}" aria-label="${ev.done ? 'Marcar pendiente' : 'Marcar completado'}">
               <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
@@ -520,6 +531,7 @@
               <div class="event-meta">
                 ${ev.time ? `<span class="event-meta-time"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${ev.time}</span>` : ''}
                 <span class="event-badge badge-${ev.type}">${TYPE_LABELS[ev.type]}</span>
+                ${isAdmin && ev.worker_id ? `<span style="font-size:11px;font-weight:500;color:var(--accent)">👤 ${workerNames[ev.worker_id] || ev.worker_id}</span>` : ''}
                 ${ev.notes ? `<span class="event-notes-preview">${ev.notes}</span>` : ''}
               </div>
             </div>
@@ -658,6 +670,12 @@
   function changeWorker(wid) {
     if (wid) localStorage.setItem('agendaUser', wid);
     else localStorage.removeItem('agendaUser');
+    const hint = document.getElementById('worker-selector-hint');
+    if (hint) {
+      hint.textContent = wid === '__admin__'
+        ? 'Modo administrador: ves los eventos de todo el equipo.'
+        : 'Tu estado en la app del equipo se actualizará automáticamente.';
+    }
     events = [];
     renderEvents();
     loadFromSupabase();
