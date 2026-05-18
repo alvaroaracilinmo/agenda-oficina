@@ -36,6 +36,15 @@
         <div id="worker-selector-hint" style="font-size:10px;color:var(--text-tertiary);margin-top:4px;">Tu estado en la app del equipo se actualizará automáticamente.</div>
       </div>
 
+      <!-- Google Calendar -->
+      <div id="gcal-section" style="background:var(--bg-tertiary);border-radius:var(--radius-md);padding:8px 10px;">
+        <div style="font-size:10.5px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Google Calendar</div>
+        <button id="gcal-btn" onclick="connectGoogleCalendar()" style="width:100%;padding:6px 10px;border-radius:var(--radius-sm);border:0.5px solid var(--border-medium);background:var(--bg-primary);color:var(--text-secondary);font-size:12px;font-family:inherit;cursor:pointer;text-align:left;transition:all 0.15s;">
+          📅 Conectar Google Calendar
+        </button>
+        <div style="font-size:10px;color:var(--text-tertiary);margin-top:4px;">Tus eventos de Google Calendar aparecerán aquí automáticamente.</div>
+      </div>
+
       <!-- Selector de trabajador (solo admin) -->
       <div id="admin-worker-picker" style="display:none;background:var(--bg-tertiary);border-radius:var(--radius-md);padding:8px 10px;">
         <div style="font-size:10.5px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Viendo agenda de</div>
@@ -843,6 +852,113 @@
     });
   }
 
+  // ============ GOOGLE CALENDAR ============
+
+  const GCAL_CLIENT_ID = '364075012734-6v6k1ctn5eei9g6m3j45td3b3iune9jn.apps.googleusercontent.com';
+  const GCAL_SCOPES    = 'https://www.googleapis.com/auth/calendar.readonly';
+  let gcalToken = null;
+
+  function initGoogleCalendar() {
+    const btn = document.getElementById('gcal-btn');
+    if (!btn) return;
+    const savedToken = localStorage.getItem('gcal_token');
+    const tokenExpiry = localStorage.getItem('gcal_token_expiry');
+    if (savedToken && tokenExpiry && Date.now() < parseInt(tokenExpiry)) {
+      gcalToken = savedToken;
+      btn.textContent = '📅 Google Calendar conectado';
+      btn.style.background = '#eaf5e4';
+      btn.style.color = '#2a6020';
+      btn.style.borderColor = '#5a9e40';
+      syncGoogleCalendar();
+    }
+  }
+
+  function connectGoogleCalendar() {
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: GCAL_CLIENT_ID,
+      scope: GCAL_SCOPES,
+      callback: (response) => {
+        if (response.access_token) {
+          gcalToken = response.access_token;
+          const expiry = Date.now() + (response.expires_in * 1000);
+          localStorage.setItem('gcal_token', gcalToken);
+          localStorage.setItem('gcal_token_expiry', expiry.toString());
+          const btn = document.getElementById('gcal-btn');
+          if (btn) {
+            btn.textContent = '📅 Google Calendar conectado';
+            btn.style.background = '#eaf5e4';
+            btn.style.color = '#2a6020';
+            btn.style.borderColor = '#5a9e40';
+          }
+          syncGoogleCalendar();
+        }
+      }
+    });
+    client.requestAccessToken();
+  }
+
+  async function syncGoogleCalendar() {
+    if (!gcalToken) return;
+    const workerId = localStorage.getItem('agendaUser');
+    if (!workerId || workerId === '__admin__') return;
+
+    try {
+      const now = new Date();
+      const timeMin = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const timeMax = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 30).toISOString();
+
+      const res = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=50`,
+        { headers: { Authorization: `Bearer ${gcalToken}` } }
+      );
+
+      if (res.status === 401) {
+        // Token expirado
+        localStorage.removeItem('gcal_token');
+        localStorage.removeItem('gcal_token_expiry');
+        gcalToken = null;
+        const btn = document.getElementById('gcal-btn');
+        if (btn) {
+          btn.textContent = '📅 Conectar Google Calendar';
+          btn.style.background = '';
+          btn.style.color = '';
+          btn.style.borderColor = '';
+        }
+        return;
+      }
+
+      const data = await res.json();
+      const gcalEvents = (data.items || []).map(item => {
+        const isAllDay = !!item.start.date;
+        const startDate = isAllDay ? item.start.date : item.start.dateTime.slice(0, 10);
+        const startTime = isAllDay ? '' : item.start.dateTime.slice(11, 16);
+        return {
+          id:        'gcal_' + item.id,
+          title:     item.summary || 'Sin título',
+          date:      startDate,
+          time:      startTime,
+          type:      'reunion',
+          priority:  'med',
+          notes:     item.description || item.location || '',
+          done:      false,
+          fromGcal:  true,
+          worker_id: workerId
+        };
+      });
+
+      // Mezcla eventos de Supabase con los de Google Calendar (sin duplicar)
+      events = [
+        ...events.filter(e => !e.fromGcal),
+        ...gcalEvents
+      ];
+
+      renderMiniCal();
+      renderEvents();
+      await syncStatusToTeamApp();
+
+    } catch(e) { console.warn('Error sincronizando Google Calendar:', e); }
+  }
+
   // ============ INIT ============
 
   renderMiniCal();
@@ -850,22 +966,33 @@
 
   const savedWorker = localStorage.getItem('agendaUser');
   if (!savedWorker) {
-    // Sin sesión, redirige al login
     window.location.href = 'index.html';
   } else {
     initWorker();
     updateNotifBtn();
     loadFromSupabase();
     syncStatusToTeamApp();
+    // Inicializa Google Calendar si había token guardado
+    if (typeof google !== 'undefined') initGoogleCalendar();
   }
 
-  // Sincroniza cada 5 minutos
-  setInterval(() => { today = new Date(); syncStatusToTeamApp(); scheduleReminders(); }, 5 * 60 * 1000);
+  // Sincroniza Google Calendar cada 5 minutos
+  setInterval(() => {
+    today = new Date();
+    syncStatusToTeamApp();
+    scheduleReminders();
+    syncGoogleCalendar();
+  }, 5 * 60 * 1000);
 
   // Registro PWA
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW error:', e));
   }
+</script>
+
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async
+  onload="if(typeof initGoogleCalendar==='function') initGoogleCalendar()">
 </script>
 
 </body>
