@@ -16,6 +16,15 @@
 <body>
 
 <div class="app-wrapper">
+  <!-- Banner notificación fin de tarea -->
+  <div id="end-notif-banner" style="display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:200;background:#1a1208;color:#fff;border-radius:12px;padding:14px 18px;box-shadow:0 4px 24px rgba(0,0,0,0.25);max-width:340px;width:90%;flex-direction:column;gap:10px;">
+    <div style="font-size:13px;font-weight:600;">⏰ ¿Has terminado?</div>
+    <div id="end-notif-title" style="font-size:12px;opacity:0.8;"></div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="goToUpdateStatus()" style="flex:1;padding:8px;border-radius:8px;border:none;background:#b00000;color:#fff;font-size:13px;font-weight:500;cursor:pointer;">Actualizar estado</button>
+      <button onclick="dismissEndBanner()" style="padding:8px 12px;border-radius:8px;border:0.5px solid rgba(255,255,255,0.2);background:none;color:rgba(255,255,255,0.7);font-size:13px;cursor:pointer;">Ahora no</button>
+    </div>
+  </div>
   <div class="app">
 
     <!-- SIDEBAR -->
@@ -190,9 +199,23 @@
         <input class="form-input" type="date" id="ev-date">
       </div>
       <div class="form-group">
-        <label class="form-label" for="ev-time">Hora</label>
+        <label class="form-label" for="ev-time">Hora inicio</label>
         <input class="form-input" type="time" id="ev-time">
       </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="ev-duration">Duración estimada</label>
+      <select class="form-input" id="ev-duration">
+        <option value="">Sin duración</option>
+        <option value="30">30 minutos</option>
+        <option value="60">1 hora</option>
+        <option value="90">1 hora 30 min</option>
+        <option value="120">2 horas</option>
+        <option value="180">3 horas</option>
+        <option value="240">4 horas</option>
+        <option value="480">Día completo</option>
+      </select>
     </div>
 
     <div class="form-row">
@@ -575,7 +598,7 @@
             <div class="event-body">
               <div class="event-title ${ev.done ? 'done-text' : ''}">${ev.title}</div>
               <div class="event-meta">
-                ${ev.time ? `<span class="event-meta-time"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${ev.time}</span>` : ''}
+                ${ev.time ? `<span class="event-meta-time"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${ev.time}${ev.duration ? ' – ' + addMinutes(ev.time, ev.duration) : ''}</span>` : ''}
                 <span class="event-badge badge-${ev.type}">${TYPE_LABELS[ev.type]}</span>
                 ${isAdmin && ev.worker_id ? `<span style="font-size:11px;font-weight:500;color:var(--accent)">👤 ${workerNames[ev.worker_id] || ev.worker_id}</span>` : ''}
                 ${ev.notes ? `<span class="event-notes-preview">${ev.notes}</span>` : ''}
@@ -648,6 +671,7 @@
       document.getElementById('ev-type').value     = ev.type;
       document.getElementById('ev-priority').value = ev.priority;
       document.getElementById('ev-notes').value    = ev.notes || '';
+      document.getElementById('ev-duration').value = ev.duration || '';
       reunionLocation = ev.reunionLoc || 'oficina';
       selectReunionLoc(reunionLocation);
       toggleReunionLocation();
@@ -660,6 +684,7 @@
       document.getElementById('ev-type').value     = 'tarea';
       document.getElementById('ev-priority').value = 'med';
       document.getElementById('ev-notes').value    = '';
+      document.getElementById('ev-duration').value = '';
       reunionLocation = 'oficina';
       selectReunionLoc('oficina');
       document.getElementById('reunion-location-group').style.display = 'none';
@@ -693,7 +718,8 @@
       priority: document.getElementById('ev-priority').value,
       notes:    document.getElementById('ev-notes').value.trim(),
       done:     editingId ? events.find(x => x.id === editingId).done : false,
-      reunionLoc: document.getElementById('ev-type').value === 'reunion' ? reunionLocation : null
+      reunionLoc: document.getElementById('ev-type').value === 'reunion' ? reunionLocation : null,
+      duration:   parseInt(document.getElementById('ev-duration').value) || null
     };
 
     await saveEventToSupabase(ev);
@@ -849,7 +875,48 @@
           });
         }, msAt));
       }
+
+      // Notificación al finalizar (si tiene duración)
+      if (ev.duration) {
+        const msEnd = evStamp + ev.duration * 60 * 1000 - now;
+        if (msEnd > 0) {
+          reminderTimeouts.push(setTimeout(() => {
+            showEndNotification(ev);
+          }, msEnd));
+        }
+      }
     });
+  }
+
+  function showEndNotification(ev) {
+    // Notificación del sistema
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(`⏰ ¿Has terminado? ${ev.title}`, {
+        body: 'Pulsa para actualizar tu estado.',
+        icon: 'imgs/favicon/android-chrome-192x192.png',
+        tag:  `end-${ev.id}`,
+        requireInteraction: true
+      });
+    }
+
+    // Banner dentro de la app
+    const banner = document.getElementById('end-notif-banner');
+    const bannerTitle = document.getElementById('end-notif-title');
+    if (banner && bannerTitle) {
+      bannerTitle.textContent = ev.title;
+      banner.style.display = 'flex';
+      banner.dataset.evId = ev.id;
+    }
+  }
+
+  function dismissEndBanner() {
+    const banner = document.getElementById('end-notif-banner');
+    if (banner) banner.style.display = 'none';
+  }
+
+  function goToUpdateStatus() {
+    dismissEndBanner();
+    window.location.href = 'index.html';
   }
 
   // ============ GOOGLE CALENDAR ============
