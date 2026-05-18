@@ -552,11 +552,72 @@ async function adminQuickBack(wid) {
 showScreen('loginScreen');
 renderLogin();
 
+// ============ HORARIOS ============
+let workerSchedules = {};
+
+async function loadSchedules() {
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/worker_schedules`, { headers: sbHeaders() });
+    const data = await res.json();
+    data.forEach(r => { workerSchedules[r.worker_id] = r.schedules; });
+  } catch(e) { console.warn('Error cargando horarios:', e); }
+}
+
+function isWithinSchedule(workerId) {
+  const schedules = workerSchedules[workerId];
+  if (!schedules || schedules.length === 0) return null; // sin horario definido
+
+  const now = new Date();
+  const day = now.getDay() === 0 ? 7 : now.getDay(); // 1=lun ... 7=dom
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  for (const s of schedules) {
+    if (!s.days.includes(day)) continue;
+    const [sh, sm] = s.start.split(':').map(Number);
+    const [eh, em] = s.end.split(':').map(Number);
+    const startMin = sh * 60 + sm;
+    const endMin   = eh * 60 + em;
+    if (nowMinutes >= startMin && nowMinutes < endMin) return true;
+  }
+  return false;
+}
+
+async function applySchedules() {
+  for (const w of WORKERS) {
+    const inSchedule = isWithinSchedule(w.id);
+    if (inSchedule === null) continue; // sin horario, no tocar
+
+    const current = teamState[w.id] || {};
+
+    // Solo cambia si el estado actual no fue puesto manualmente hace poco (< 5 min)
+    const lastUpdate = current.ts || 0;
+    const manualRecent = !current.fromSchedule && (Date.now() - lastUpdate) < 5 * 60 * 1000;
+    if (manualRecent) continue;
+
+    const newStatus = inSchedule ? 'oficina' : 'ausente';
+    if (current.status === newStatus && current.fromSchedule) continue; // ya está bien
+
+    const statusData = {
+      status: newStatus, place: '', returnTime: '', note: '',
+      fromAgenda: false, fromSchedule: true, ts: Date.now()
+    };
+    teamState[w.id] = statusData;
+    await syncSave(w.id, statusData);
+  }
+  if (isAdmin) renderAdmin(); else if (currentUser) renderApp();
+}
+
 const savedUser = localStorage.getItem('agendaUser');
 if (savedUser === '__admin__') loginAdmin();
 else if (savedUser) { const w = WORKERS.find(x => x.id === savedUser); if (w) login(w.id); }
 
+// Carga horarios y aplica al inicio
+loadSchedules().then(() => applySchedules());
+
 setInterval(loadData, 30000);
+
+// Aplica horarios cada minuto
+setInterval(() => applySchedules(), 60 * 1000);
 
 // Escucha cambios en tiempo real desde la agenda u otras pestañas
 try {
