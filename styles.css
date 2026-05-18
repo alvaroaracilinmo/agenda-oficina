@@ -124,12 +124,40 @@ body {
 }
 
 .top-bar {
-  background: var(--surface);
-  border-bottom: 0.5px solid var(--border);
+  background: #b00000;
+  border-bottom: 0.5px solid rgba(255,255,255,0.15);
   padding: 12px 16px;
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+.top-bar .top-name {
+  color: #ffffff;
+}
+
+.top-bar .top-role {
+  color: rgba(255,255,255,0.6);
+}
+
+.top-bar .btn-logout {
+  color: rgba(255,255,255,0.6);
+}
+
+.top-bar .btn-logout:hover {
+  background: rgba(255,255,255,0.12);
+  color: #ffffff;
+}
+
+.top-bar .btn-agenda {
+  color: rgba(255,255,255,0.8);
+  border-color: rgba(255,255,255,0.3);
+}
+
+.top-bar .btn-agenda:hover {
+  background: rgba(255,255,255,0.12);
+  color: #ffffff;
+  border-color: rgba(255,255,255,0.5);
 }
 
 .top-logo {
@@ -206,6 +234,8 @@ body {
   width: 32px;
   height: 32px;
   border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.9);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -719,8 +749,8 @@ body {
 }
 
 .admin-top-bar {
-  background: #b00000;
-  border-bottom-color: rgba(255,255,255,0.15);
+  background: #1a1a1a;
+  border-bottom-color: rgba(255,255,255,0.10);
 }
 
 .admin-top-bar .top-name {
