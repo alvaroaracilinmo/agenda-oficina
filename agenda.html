@@ -852,11 +852,11 @@
       const [h, m]  = ev.time.split(':').map(Number);
       const evStamp = new Date().setHours(h, m, 0, 0);
 
-      // 15 minutos antes
-      const msBefore = evStamp - 15 * 60 * 1000 - now;
+      // 30 minutos antes
+      const msBefore = evStamp - 30 * 60 * 1000 - now;
       if (msBefore > 0) {
         reminderTimeouts.push(setTimeout(() => {
-          new Notification(`En 15 min: ${ev.title}`, {
+          new Notification(`En 30 min: ${ev.title}`, {
             body: `${TYPE_LABELS[ev.type]} · ${ev.time}${ev.notes ? '\n' + ev.notes : ''}`,
             icon: 'imgs/favicon/android-chrome-192x192.png',
             tag:  `before-${ev.id}`
