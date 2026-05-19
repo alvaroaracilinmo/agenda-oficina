@@ -105,6 +105,7 @@
       <div class="top-actions">
         <button class="btn-add-worker" onclick="window.location.href='agenda.html'">📅 Ver agenda</button>
         <button class="btn-add-worker" onclick="openForm('__pick__')">Editar estado</button>
+        <button class="btn-add-worker" onclick="openScheduleEditor()">🕐 Horarios</button>
         <button class="btn-logout" onclick="logout()">Salir</button>
       </div>
     </div>
@@ -120,6 +121,18 @@
 
     <div class="section-label" style="margin-top:8px">Registro de hoy</div>
     <div id="adminHistoryList"></div>
+  </div>
+</div>
+
+<!-- MODAL EDITOR DE HORARIOS -->
+<div class="modal-bg" id="scheduleModal" onclick="handleScheduleModalBg(event)">
+  <div class="modal" style="max-width:520px;max-height:85vh;overflow-y:auto;">
+    <div class="modal-title">🕐 Editor de horarios</div>
+    <div id="schedule-editor-content" style="margin-top:12px;"></div>
+    <div class="modal-btns" style="margin-top:16px;">
+      <button class="btn-cancel" onclick="closeScheduleEditor()">Cerrar</button>
+      <button class="btn-save" onclick="saveAllSchedules()">Guardar cambios</button>
+    </div>
   </div>
 </div>
 
@@ -327,6 +340,113 @@ async function checkPin() {
     }
     errEl.style.display = 'block';
   }
+}
+
+// ============ EDITOR DE HORARIOS ============
+const DAY_NAMES = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+let editingSchedules = {};
+
+async function openScheduleEditor() {
+  // Carga horarios actuales
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/worker_schedules`, { headers: sbHeaders() });
+    const data = await res.json();
+    editingSchedules = {};
+    data.forEach(r => { editingSchedules[r.worker_id] = JSON.parse(JSON.stringify(r.schedules)); });
+  } catch(e) { console.warn('Error cargando horarios:', e); }
+
+  renderScheduleEditor();
+  document.getElementById('scheduleModal').classList.add('open');
+}
+
+function renderScheduleEditor() {
+  const container = document.getElementById('schedule-editor-content');
+  container.innerHTML = WORKERS.map(w => {
+    const schedules = editingSchedules[w.id] || [];
+    return `
+      <div style="margin-bottom:16px;padding:12px;background:var(--bg);border-radius:var(--radius-sm);border:0.5px solid var(--border);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-size:13px;font-weight:600;">${w.name}</div>
+          <button onclick="addScheduleSlot('${w.id}')" style="font-size:11px;padding:3px 8px;border-radius:6px;border:0.5px solid var(--border-md);background:none;cursor:pointer;color:var(--text-secondary);">+ Añadir franja</button>
+        </div>
+        <div id="slots-${w.id}">
+          ${schedules.length === 0
+            ? `<div style="font-size:12px;color:var(--text-hint);font-style:italic;">Sin horario definido</div>`
+            : schedules.map((s, i) => renderSlot(w.id, i, s)).join('')
+          }
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderSlot(workerId, index, slot) {
+  const daysHtml = [1,2,3,4,5,6,7].map(d => `
+    <label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;">
+      <input type="checkbox" ${slot.days.includes(d) ? 'checked' : ''}
+        onchange="toggleSlotDay('${workerId}',${index},${d},this.checked)"
+        style="cursor:pointer;">
+      ${DAY_NAMES[d]}
+    </label>
+  `).join('');
+
+  return `
+    <div id="slot-${workerId}-${index}" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;padding:8px;background:var(--surface);border-radius:6px;border:0.5px solid var(--border);">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1;">${daysHtml}</div>
+      <input type="time" value="${slot.start}" onchange="updateSlotTime('${workerId}',${index},'start',this.value)"
+        style="padding:4px 6px;border-radius:6px;border:0.5px solid var(--border-md);font-size:12px;background:var(--bg);color:var(--text);">
+      <span style="font-size:12px;color:var(--text-secondary);">a</span>
+      <input type="time" value="${slot.end}" onchange="updateSlotTime('${workerId}',${index},'end',this.value)"
+        style="padding:4px 6px;border-radius:6px;border:0.5px solid var(--border-md);font-size:12px;background:var(--bg);color:var(--text);">
+      <button onclick="removeSlot('${workerId}',${index})" style="padding:3px 8px;border-radius:6px;border:0.5px solid rgba(176,0,0,0.3);background:none;color:#b00000;font-size:11px;cursor:pointer;">✕</button>
+    </div>
+  `;
+}
+
+function addScheduleSlot(workerId) {
+  if (!editingSchedules[workerId]) editingSchedules[workerId] = [];
+  editingSchedules[workerId].push({ days: [1,2,3,4,5], start: '09:00', end: '14:00' });
+  renderScheduleEditor();
+}
+
+function removeSlot(workerId, index) {
+  editingSchedules[workerId].splice(index, 1);
+  renderScheduleEditor();
+}
+
+function toggleSlotDay(workerId, index, day, checked) {
+  const slot = editingSchedules[workerId][index];
+  if (checked && !slot.days.includes(day)) slot.days.push(day);
+  if (!checked) slot.days = slot.days.filter(d => d !== day);
+}
+
+function updateSlotTime(workerId, index, field, value) {
+  editingSchedules[workerId][index][field] = value;
+}
+
+async function saveAllSchedules() {
+  try {
+    for (const [workerId, schedules] of Object.entries(editingSchedules)) {
+      await fetch(`${SB_URL}/rest/v1/worker_schedules`, {
+        method: 'POST',
+        headers: { ...sbHeaders(), 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({ worker_id: workerId, schedules })
+      });
+    }
+    closeScheduleEditor();
+    alert('✅ Horarios guardados correctamente');
+  } catch(e) {
+    alert('❌ Error guardando horarios');
+    console.warn(e);
+  }
+}
+
+function closeScheduleEditor() {
+  document.getElementById('scheduleModal').classList.remove('open');
+}
+
+function handleScheduleModalBg(e) {
+  if (e.target === document.getElementById('scheduleModal')) closeScheduleEditor();
 }
 
 // ============ COOKIES ============
