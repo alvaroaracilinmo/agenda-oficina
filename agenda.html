@@ -386,7 +386,8 @@
       if (!ev.time) return ev.type === 'visita_cli';
       const [h, m] = ev.time.split(':').map(Number);
       const evMin = h * 60 + m;
-      return evMin <= nowMinutes && nowMinutes <= evMin + 120;
+      const duration = ev.duration || 120;
+      return evMin <= nowMinutes && nowMinutes <= evMin + duration;
     });
 
     try {
@@ -395,7 +396,7 @@
         const ev = active[0];
         status = getStatusForEvent(ev);
         note = getNoteForEvent(ev);
-        returnTime = ev.time ? addMinutes(ev.time, 120) : '';
+        returnTime = ev.time ? addMinutes(ev.time, ev.duration || 120) : '';
         fromAgenda = true;
       } else {
         // Solo resetea si el estado actual venía de la agenda
