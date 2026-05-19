@@ -1026,12 +1026,26 @@
     } catch(e) { console.warn('Error sincronizando Google Calendar:', e); }
   }
 
+  // ============ COOKIES ============
+  function setCookie(name, value, days) {
+    const expires = new Date(Date.now() + days * 864e5).toUTCString();
+    document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires};path=/;SameSite=Lax`;
+  }
+
+  function getCookie(name) {
+    return document.cookie.split('; ').reduce((r, v) => {
+      const parts = v.split('=');
+      return parts[0] === name ? decodeURIComponent(parts[1]) : r;
+    }, null);
+  }
+
   // ============ INIT ============
 
   renderMiniCal();
   renderHeader();
 
-  const savedWorker = localStorage.getItem('agendaUser');
+  const savedWorker = localStorage.getItem('agendaUser') || getCookie('agendaUser');
+  if (savedWorker) localStorage.setItem('agendaUser', savedWorker);
   if (!savedWorker) {
     window.location.href = 'index.html';
   } else {

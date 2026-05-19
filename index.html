@@ -329,10 +329,28 @@ async function checkPin() {
   }
 }
 
+// ============ COOKIES ============
+function setCookie(name, value, days) {
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires};path=/;SameSite=Lax`;
+}
+
+function getCookie(name) {
+  return document.cookie.split('; ').reduce((r, v) => {
+    const parts = v.split('=');
+    return parts[0] === name ? decodeURIComponent(parts[1]) : r;
+  }, null);
+}
+
+function deleteCookie(name) {
+  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+}
+
 async function login(id) {
   currentUser = WORKERS.find(w => w.id === id);
   isAdmin = false;
   localStorage.setItem('agendaUser', id);
+  setCookie('agendaUser', id, 30);
   showScreen('appScreen');
   renderTopBar();
   await loadData();
@@ -346,6 +364,7 @@ async function loginAdmin() {
   isAdmin = true;
   currentUser = null;
   localStorage.setItem('agendaUser', '__admin__');
+  setCookie('agendaUser', '__admin__', 30);
   showScreen('adminScreen');
   await loadData();
   try {
@@ -357,6 +376,7 @@ async function loginAdmin() {
 function logout() {
   currentUser = null; isAdmin = false;
   localStorage.removeItem('agendaUser');
+  deleteCookie('agendaUser');
   showScreen('loginScreen');
 }
 
@@ -610,7 +630,8 @@ async function applySchedules() {
   if (isAdmin) renderAdmin(); else if (currentUser) renderApp();
 }
 
-const savedUser = localStorage.getItem('agendaUser');
+const savedUser = localStorage.getItem('agendaUser') || getCookie('agendaUser');
+if (savedUser) localStorage.setItem('agendaUser', savedUser); // sincroniza cookie → localStorage
 if (savedUser === '__admin__') loginAdmin();
 else if (savedUser) { const w = WORKERS.find(x => x.id === savedUser); if (w) login(w.id); }
 
