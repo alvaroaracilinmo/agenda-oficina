@@ -383,7 +383,8 @@
 
     const active = events.filter(ev => {
       if (ev.done || ev.date !== todayStr) return false;
-      if (!ev.time) return ev.type === 'visita_cli';
+      if (ev.type === 'visita_cli') return true; // visita siempre activa si es hoy
+      if (!ev.time) return false;
       const [h, m] = ev.time.split(':').map(Number);
       const evMin = h * 60 + m;
       const duration = ev.duration || 120;
