@@ -314,7 +314,7 @@
       events = data.map(r => ({
         id: r.id, title: r.title, date: r.date, time: r.time || '',
         type: r.type, priority: r.priority, notes: r.notes || '', done: r.done,
-        worker_id: r.worker_id
+        worker_id: r.worker_id, duration: r.duration || null, reunionLoc: r.reunion_loc || null
       }));
       nextId = events.length ? Math.max(...events.map(e => e.id)) + 1 : 1;
     } catch(e) { console.warn('Error cargando agenda:', e); events = []; }
@@ -328,7 +328,8 @@
     if (!sessionUser) return;
     const workerId = (sessionUser === '__admin__' && adminTargetWorker) ? adminTargetWorker : sessionUser;
     const body = { worker_id: workerId, title: ev.title, date: ev.date, time: ev.time,
-      type: ev.type, priority: ev.priority, notes: ev.notes, done: ev.done };
+      type: ev.type, priority: ev.priority, notes: ev.notes, done: ev.done,
+      duration: ev.duration || null, reunion_loc: ev.reunionLoc || null };
     if (ev.id && ev._exists) {
       await fetch(`${SB_URL}/rest/v1/agenda_events?id=eq.${ev.id}`, {
         method: 'PATCH', headers: sbHeaders(), body: JSON.stringify(body)
