@@ -12,6 +12,7 @@
 <link rel="apple-touch-icon" href="imgs/favicon/favicon-192x192.png">
 <title>A&A Aracil Agenda- Home</title>
 <link rel="stylesheet" href="styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -121,6 +122,23 @@
 
     <div class="section-label" style="margin-top:8px">Registro de hoy</div>
     <div id="adminHistoryList"></div>
+
+    <!-- CONTROL DE HORAS -->
+    <div class="section-label" style="margin-top:24px">Control de horas</div>
+    <div style="background:white;border:0.5px solid var(--border);border-radius:12px;padding:16px;margin-top:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button onclick="prevWeek()" style="width:30px;height:30px;border-radius:8px;border:0.5px solid var(--border);background:var(--bg);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;color:var(--text)">←</button>
+          <span id="weekLabel" style="font-size:13px;font-weight:600;color:var(--text);min-width:160px;text-align:center"></span>
+          <button id="nextWeekBtn" onclick="nextWeek()" style="width:30px;height:30px;border-radius:8px;border:0.5px solid var(--border);background:var(--bg);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;color:var(--text)">→</button>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button id="btnDownloadCSV" onclick="handleDownloadCSV()" class="btn-add-worker">📊 Excel / CSV</button>
+          <button id="btnDownloadPDF" onclick="handleDownloadPDF()" class="btn-add-worker">📄 PDF</button>
+        </div>
+      </div>
+      <div id="hoursStatus" style="font-size:11.5px;color:var(--text-hint);margin-top:10px;min-height:16px;"></div>
+    </div>
   </div>
 </div>
 
@@ -486,6 +504,7 @@ async function loginAdmin() {
   localStorage.setItem('agendaUser', '__admin__');
   setCookie('agendaUser', '__admin__', 30);
   showScreen('adminScreen');
+  updateWeekLabel();
   await loadData();
   try {
     const bc = new BroadcastChannel('agenda');
@@ -689,6 +708,350 @@ async function adminQuickBack(wid) {
   await saveHistory({ workerId: wid, who: w.name, status: 'oficina', place: '', returnTime: '', note, editedBy: 'admin' });
   await loadHistory();
   renderAdmin();
+}
+
+// ============ CONTROL DE HORAS ============
+
+let reportWeekOffset = 0;
+
+function getWeekRange(offset) {
+  const now = new Date();
+  const dow = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1) + offset * 7);
+  monday.setHours(0, 0, 0, 0);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { start: monday, end: sunday };
+}
+
+function prevWeek() { reportWeekOffset--; updateWeekLabel(); }
+function nextWeek() { if (reportWeekOffset < 0) { reportWeekOffset++; updateWeekLabel(); } }
+
+function updateWeekLabel() {
+  const { start, end } = getWeekRange(reportWeekOffset);
+  const fmt = d => d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  const lbl = document.getElementById('weekLabel');
+  if (lbl) lbl.textContent = `${fmt(start)} – ${fmt(end)}`;
+  const nextBtn = document.getElementById('nextWeekBtn');
+  if (nextBtn) nextBtn.style.opacity = reportWeekOffset >= 0 ? '0.35' : '1';
+}
+
+async function fetchWeekData() {
+  const { start, end } = getWeekRange(reportWeekOffset);
+  const s = start.toISOString().slice(0, 10);
+  const e = end.toISOString().slice(0, 10);
+  const [hRes, scRes] = await Promise.all([
+    fetch(`${SB_URL}/rest/v1/team_history?created_at=gte.${s}T00:00:00&created_at=lte.${e}T23:59:59&order=created_at.asc&limit=2000`, { headers: sbHeaders() }),
+    fetch(`${SB_URL}/rest/v1/worker_schedules`, { headers: sbHeaders() })
+  ]);
+  const histData   = await hRes.json();
+  const schedData  = scRes.ok ? await scRes.json() : [];
+  return { histData, schedData, start, end };
+}
+
+// Organiza el historial por trabajador → día → entradas
+function buildReport(histData, schedData, start, end) {
+  const STATUS_ES = { oficina:'En oficina', visita:'En visita', camino:'De camino', ausente:'Ausente', reunido:'Reunión en oficina' };
+
+  // Días de la semana
+  const days = [];
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    days.push(new Date(d).toISOString().slice(0, 10));
+  }
+
+  // byWorker[wid][date] = [{time, rawTime, status, rawStatus, place, note, editedBy}]
+  const byWorker = {};
+  WORKERS.forEach(w => { byWorker[w.id] = {}; });
+
+  histData.forEach(r => {
+    const wid  = r.worker_id;
+    const date = r.created_at.slice(0, 10);
+    if (!byWorker[wid]) byWorker[wid] = {};
+    if (!byWorker[wid][date]) byWorker[wid][date] = [];
+    byWorker[wid][date].push({
+      time:      new Date(r.created_at).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }),
+      rawTime:   new Date(r.created_at).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }),
+      status:    STATUS_ES[r.status] || r.status,
+      rawStatus: r.status,
+      place:     r.place || '',
+      note:      r.note  || '',
+      editedBy:  r.edited_by || ''
+    });
+  });
+
+  // Horarios esperados por trabajador (worker_schedules)
+  // Soporta ambos formatos: {worker_id, day_of_week, start_time, end_time} o {worker_id, lunes_inicio, ...}
+  const schedByWorker = {};
+  schedData.forEach(s => {
+    if (s.worker_id) schedByWorker[s.worker_id] = s;
+  });
+
+  return { days, byWorker, schedByWorker };
+}
+
+// Calcula minutos estimados en oficina para un día (a partir de transiciones en el historial)
+function calcOfficeMinutes(entries) {
+  let mins = 0, inOfficeAt = null;
+  entries.forEach(e => {
+    if (e.rawStatus === 'oficina' || e.rawStatus === 'reunido') {
+      if (!inOfficeAt) inOfficeAt = e.rawTime;
+    } else if (inOfficeAt) {
+      const [sh, sm] = inOfficeAt.split(':').map(Number);
+      const [eh, em] = e.rawTime.split(':').map(Number);
+      const diff = (eh * 60 + em) - (sh * 60 + sm);
+      if (diff > 0) mins += diff;
+      inOfficeAt = null;
+    }
+  });
+  return mins;
+}
+
+function fmtMins(mins) {
+  if (!mins) return '—';
+  return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2,'0')}m`;
+}
+
+// ---- DESCARGA CSV ----
+function generateCSV(histData, schedData, start, end) {
+  const { days, byWorker, schedByWorker } = buildReport(histData, schedData, start, end);
+  const fmtDate = d => new Date(d + 'T12:00:00').toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'short' });
+  const fmtFull = d => d.toLocaleDateString('es-ES', { day:'numeric', month:'long', year:'numeric' });
+  const rows = [];
+
+  rows.push([`Control de Horas – Aracil Inmobiliaria`]);
+  rows.push([`Semana del ${fmtFull(start)} al ${fmtFull(end)}`]);
+  rows.push([`Generado el ${new Date().toLocaleDateString('es-ES')}`]);
+  rows.push([]);
+
+  // ---- RESUMEN SEMANAL ----
+  rows.push(['RESUMEN SEMANAL']);
+  rows.push(['Trabajador', 'Cargo', 'Días con actividad', 'Tiempo estimado en oficina', 'Primera entrada', 'Última anotación']);
+
+  WORKERS.forEach(w => {
+    const activeDays = days.filter(d => (byWorker[w.id][d] || []).length > 0);
+    let officeTotal = 0;
+    activeDays.forEach(d => { officeTotal += calcOfficeMinutes(byWorker[w.id][d] || []); });
+
+    const allEntries = [];
+    days.forEach(d => (byWorker[w.id][d] || []).forEach(e => allEntries.push({ d, ...e })));
+    const first = allEntries[0]       ? `${fmtDate(allEntries[0].d)} ${allEntries[0].time}` : '—';
+    const last  = allEntries.length   ? `${fmtDate(allEntries[allEntries.length - 1].d)} ${allEntries[allEntries.length - 1].time}` : '—';
+
+    rows.push([w.name, w.role, `${activeDays.length} / ${days.length}`, fmtMins(officeTotal), first, last]);
+  });
+
+  rows.push([]);
+
+  // ---- REGISTRO DETALLADO ----
+  rows.push(['REGISTRO DETALLADO']);
+  rows.push(['Trabajador', 'Día', 'Hora', 'Estado', 'Lugar', 'Nota', 'Editado por']);
+
+  WORKERS.forEach(w => {
+    days.forEach(date => {
+      const entries = byWorker[w.id][date] || [];
+      if (!entries.length) return;
+      entries.forEach((e, i) => {
+        rows.push([
+          i === 0 ? w.name : '',
+          i === 0 ? fmtDate(date) : '',
+          e.time, e.status, e.place, e.note,
+          e.editedBy === 'admin' ? 'Admin' : ''
+        ]);
+      });
+    });
+  });
+
+  const csv = rows.map(row =>
+    row.map(c => {
+      const s = String(c ?? '');
+      return /[,"\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+    }).join(',')
+  ).join('\n');
+
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: `control-horas-${start.toISOString().slice(0,10)}.csv`
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ---- DESCARGA PDF ----
+function generatePDF(histData, schedData, start, end) {
+  if (!window.jspdf) { alert('La librería PDF aún se está cargando, espera un momento.'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const { days, byWorker } = buildReport(histData, schedData, start, end);
+
+  const fmtDate  = d => new Date(d + 'T12:00:00').toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long' });
+  const fmtFull  = d => d.toLocaleDateString('es-ES', { day:'numeric', month:'long', year:'numeric' });
+  const fmtShort = d => new Date(d + 'T12:00:00').toLocaleDateString('es-ES', { weekday:'short', day:'numeric', month:'short' });
+
+  const RED   = [176, 0, 0];
+  const DARK  = [30, 20, 10];
+  const MID   = [90, 80, 70];
+  const LIGHT = [245, 243, 240];
+  const BONE  = [252, 251, 249];
+  const BORD  = [210, 205, 200];
+  const ML = 14, MR = 196, PW = 210;
+
+  let y = 0;
+
+  function checkPage(needed = 10) {
+    if (y + needed > 282) { doc.addPage(); y = 14; }
+  }
+
+  function pageFooter() {
+    const n = doc.getNumberOfPages();
+    for (let i = 1; i <= n; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7); doc.setTextColor(180, 170, 160);
+      doc.text(`Aracil Inmobiliaria · Control de Horas · Semana del ${fmtFull(start)}`, ML, 291);
+      doc.text(`Pág. ${i} / ${n}`, MR, 291, { align:'right' });
+    }
+  }
+
+  // ── CABECERA ──
+  doc.setFillColor(...RED);
+  doc.rect(0, 0, PW, 26, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(15); doc.setFont('helvetica','bold');
+  doc.text('Control de Horas', ML, 11);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text('Aracil Inmobiliaria', ML, 17);
+  doc.text(`Semana del ${fmtFull(start)} al ${fmtFull(end)}`, ML, 22);
+  doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')}`, MR, 22, { align:'right' });
+
+  y = 34;
+
+  // ── RESUMEN SEMANAL ──
+  doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(...RED);
+  doc.text('Resumen semanal', ML, y); y += 5;
+
+  const colS = [ML, 62, 95, 130, 163];
+  const heads = ['Trabajador', 'Días activos', 'Tiempo en oficina', 'Primera entrada', 'Última anotación'];
+  doc.setFontSize(8); doc.setFont('helvetica','bold');
+  doc.setFillColor(...LIGHT); doc.setDrawColor(...BORD);
+  doc.rect(ML, y, MR - ML, 7, 'FD');
+  doc.setTextColor(...MID);
+  heads.forEach((h, i) => doc.text(h, colS[i] + 1.5, y + 5));
+  y += 7;
+
+  WORKERS.forEach((w, wi) => {
+    checkPage(8);
+    const activeDays = days.filter(d => (byWorker[w.id][d] || []).length > 0);
+    let officeTotal = 0;
+    activeDays.forEach(d => { officeTotal += calcOfficeMinutes(byWorker[w.id][d] || []); });
+    const allE = [];
+    days.forEach(d => (byWorker[w.id][d] || []).forEach(e => allE.push({ d, ...e })));
+    const first = allE[0]        ? `${fmtShort(allE[0].d)} ${allE[0].time}` : '—';
+    const last  = allE.length    ? `${fmtShort(allE[allE.length-1].d)} ${allE[allE.length-1].time}` : '—';
+    const vals  = [w.name, `${activeDays.length} / ${days.length}`, fmtMins(officeTotal), first, last];
+
+    if (wi % 2 === 0) { doc.setFillColor(...BONE); doc.rect(ML, y, MR - ML, 7, 'F'); }
+    doc.setDrawColor(...BORD); doc.rect(ML, y, MR - ML, 7, 'D');
+    doc.setFont('helvetica','normal'); doc.setTextColor(...DARK);
+    vals.forEach((v, i) => doc.text(String(v), colS[i] + 1.5, y + 5));
+    y += 7;
+  });
+
+  y += 10;
+
+  // ── REGISTRO DETALLADO ──
+  checkPage(14);
+  doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(...RED);
+  doc.text('Registro detallado', ML, y); y += 6;
+
+  WORKERS.forEach(w => {
+    const hasActivity = days.some(d => (byWorker[w.id][d] || []).length > 0);
+    if (!hasActivity) return;
+
+    checkPage(12);
+    // Cabecera trabajador
+    doc.setFillColor(235, 232, 228); doc.setDrawColor(...BORD);
+    doc.rect(ML, y, MR - ML, 7, 'FD');
+    doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...DARK);
+    doc.text(`${w.name}  ·  ${w.role}`, ML + 2, y + 5);
+    y += 9;
+
+    days.forEach(date => {
+      const entries = byWorker[w.id][date] || [];
+      if (!entries.length) return;
+
+      checkPage(6 + entries.length * 5);
+
+      // Etiqueta día
+      const dayStr = fmtDate(date);
+      doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.setTextColor(...MID);
+      doc.text(dayStr.charAt(0).toUpperCase() + dayStr.slice(1), ML + 3, y + 4); y += 5;
+
+      // Líneas de registro
+      const colR = [ML + 5, ML + 20, ML + 68, ML + 105];
+      entries.forEach(e => {
+        checkPage(5);
+        doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...DARK);
+        doc.text(e.time,   colR[0], y + 3.5);
+        doc.text(e.status, colR[1], y + 3.5);
+        if (e.place || e.note) {
+          const detail = [e.place, e.note].filter(Boolean).join(' · ');
+          doc.setTextColor(...MID);
+          doc.text(detail.slice(0, 55), colR[2], y + 3.5);
+          doc.setTextColor(...DARK);
+        }
+        if (e.editedBy === 'admin') {
+          doc.setFontSize(6.5); doc.setTextColor(...RED);
+          doc.text('Admin', colR[3], y + 3.5);
+          doc.setFontSize(8); doc.setTextColor(...DARK);
+        }
+        // línea separadora suave
+        doc.setDrawColor(230, 226, 222);
+        doc.line(ML + 5, y + 5, MR - 5, y + 5);
+        y += 5;
+      });
+      y += 3;
+    });
+    y += 4;
+  });
+
+  pageFooter();
+  doc.save(`control-horas-${start.toISOString().slice(0,10)}.pdf`);
+}
+
+// ---- Botones ----
+async function handleDownloadCSV() {
+  const btn = document.getElementById('btnDownloadCSV');
+  const status = document.getElementById('hoursStatus');
+  btn.disabled = true; btn.textContent = 'Cargando…';
+  status.textContent = 'Obteniendo datos de Supabase…';
+  try {
+    const { histData, schedData, start, end } = await fetchWeekData();
+    generateCSV(histData, schedData, start, end);
+    status.textContent = `✓ Descargado: control-horas-${start.toISOString().slice(0,10)}.csv`;
+  } catch(e) {
+    status.textContent = '✗ Error al generar el archivo. Revisa la consola.';
+    console.error(e);
+  } finally {
+    btn.disabled = false; btn.textContent = '📊 Excel / CSV';
+  }
+}
+
+async function handleDownloadPDF() {
+  const btn = document.getElementById('btnDownloadPDF');
+  const status = document.getElementById('hoursStatus');
+  btn.disabled = true; btn.textContent = 'Generando PDF…';
+  status.textContent = 'Obteniendo datos de Supabase…';
+  try {
+    const { histData, schedData, start, end } = await fetchWeekData();
+    generatePDF(histData, schedData, start, end);
+    status.textContent = `✓ Descargado: control-horas-${start.toISOString().slice(0,10)}.pdf`;
+  } catch(e) {
+    status.textContent = '✗ Error al generar el PDF. Revisa la consola.';
+    console.error(e);
+  } finally {
+    btn.disabled = false; btn.textContent = '📄 PDF';
+  }
 }
 
 // ---------- INIT ----------
