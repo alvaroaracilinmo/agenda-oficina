@@ -381,14 +381,22 @@
     const now = new Date();
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
+    // Solo estos tipos justifican marcar como ausente
+    function triggersAbsent(ev) {
+      if (ev.type === 'visita_cli') return true;
+      if (ev.type === 'personal')   return true;
+      if (ev.type === 'reunion' && ev.reunionLoc === 'fuera') return true;
+      return false;
+    }
+
     const active = events.filter(ev => {
-      if (ev.done || ev.date !== todayStr) return false;
-      if (ev.type === 'visita_cli') return true; // visita siempre activa si es hoy
-      if (!ev.time) return false;
+      if (ev.done || ev.date !== todayStr || !ev.time) return false;
+      if (!triggersAbsent(ev)) return false;
       const [h, m] = ev.time.split(':').map(Number);
-      const evMin = h * 60 + m;
+      const evMin  = h * 60 + m;
       const duration = ev.duration || 120;
-      return evMin <= nowMinutes && nowMinutes <= evMin + duration;
+      // Marca ausente desde 30 min antes hasta el final estimado del evento
+      return evMin - 30 <= nowMinutes && nowMinutes <= evMin + duration;
     });
 
     try {
