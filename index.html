@@ -518,8 +518,65 @@ function renderTopBar() {
   document.getElementById('topRole').textContent = w.role;
 }
 
+// Comprueba si algún trabajador tiene un evento de agenda activo y actualiza su estado.
+// Corre desde index.html cada 30s, sin necesidad de que agenda.html esté abierta.
+async function checkAgendaStatuses() {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const now      = new Date();
+  const nowMins  = now.getHours() * 60 + now.getMinutes();
+
+  try {
+    const res = await fetch(
+      `${SB_URL}/rest/v1/agenda_events?date=eq.${todayStr}&done=eq.false`,
+      { headers: sbHeaders() }
+    );
+    const agendaEvents = await res.json();
+    if (!Array.isArray(agendaEvents)) return;
+
+    for (const w of WORKERS) {
+      const workerEvents = agendaEvents.filter(ev => ev.worker_id === w.id);
+
+      // visita_cli y personal siempre marcan ausente.
+      // reunion: reunion_loc no se guarda en BD, se omite aquí (agenda.html lo gestiona cuando está abierta).
+      const activeEv = workerEvents.find(ev => {
+        if (!ev.time) return false;
+        if (ev.type !== 'visita_cli' && ev.type !== 'personal') return false;
+        const [h, m] = ev.time.split(':').map(Number);
+        const evMin  = h * 60 + m;
+        return evMin - 30 <= nowMins && nowMins <= evMin + (ev.duration || 120);
+      });
+
+      const cur = teamState[w.id] || {};
+      const TYPE_NOTE = { visita_cli: 'Visita', personal: 'Personal' };
+
+      if (activeEv) {
+        const note = `${TYPE_NOTE[activeEv.type]}: ${activeEv.title}`;
+        const [h, m] = activeEv.time.split(':').map(Number);
+        const endMins   = h * 60 + m + (activeEv.duration || 120);
+        const returnTime = String(Math.floor(endMins / 60) % 24).padStart(2,'0') + ':' + String(endMins % 60).padStart(2,'0');
+
+        // Salir si ya está correctamente marcado (evita duplicados en historial)
+        if (cur.status === 'ausente' && cur.fromAgenda && cur.note === note) continue;
+
+        const statusData = { status:'ausente', place:'', returnTime, note, fromAgenda:true, ts: Date.now() };
+        teamState[w.id] = statusData;
+        await syncSave(w.id, statusData);
+        await saveHistory({ workerId: w.id, who: w.name, status:'ausente', place:'', returnTime, note, editedBy:'agenda' });
+
+      } else if (cur.fromAgenda && cur.status !== 'oficina') {
+        // Ningún evento activo → resetear a oficina si el estado lo puso la agenda
+        const statusData = { status:'oficina', place:'', returnTime:'', note:'', fromAgenda:false, ts: Date.now() };
+        teamState[w.id] = statusData;
+        await syncSave(w.id, statusData);
+        await saveHistory({ workerId: w.id, who: w.name, status:'oficina', place:'', returnTime:'', note:'Regresó a la oficina', editedBy:'agenda' });
+      }
+    }
+  } catch(e) { console.warn('Error en checkAgendaStatuses:', e); }
+}
+
 async function loadData() {
   await syncLoad();
+  await checkAgendaStatuses();
   await loadHistory();
   if (isAdmin) renderAdmin(); else renderApp();
   const now = new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});

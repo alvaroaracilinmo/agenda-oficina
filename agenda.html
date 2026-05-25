@@ -400,24 +400,47 @@
     });
 
     try {
+      // Leer estado actual antes de decidir
+      const curRes = await fetch(`${SB_URL}/rest/v1/team_status?worker_id=eq.${workerId}`, { headers: sbHeaders() });
+      const curData = await curRes.json();
+      const cur = curData[0];
+
       let status = 'oficina', place = '', returnTime = '', note = '', fromAgenda = false;
+
       if (active.length > 0) {
         const ev = active[0];
-        status = getStatusForEvent(ev);
-        note = getNoteForEvent(ev);
+        status    = getStatusForEvent(ev);
+        note      = getNoteForEvent(ev);
         returnTime = ev.time ? addMinutes(ev.time, ev.duration || 120) : '';
         fromAgenda = true;
       } else {
         // Solo resetea si el estado actual venía de la agenda
-        const res = await fetch(`${SB_URL}/rest/v1/team_status?worker_id=eq.${workerId}`, { headers: sbHeaders() });
-        const cur = await res.json();
-        if (!cur[0] || !cur[0].from_agenda) return;
+        if (!cur || !cur.from_agenda) return;
+        // status = 'oficina' por defecto
       }
+
+      // Salir sin hacer nada si el estado ya es el correcto (evita duplicados en historial)
+      if (cur && cur.status === status && Boolean(cur.from_agenda) === fromAgenda) return;
+
+      // Actualizar team_status
       await fetch(`${SB_URL}/rest/v1/team_status`, {
         method: 'POST',
         headers: { ...sbHeaders(), 'Prefer': 'resolution=merge-duplicates' },
         body: JSON.stringify({ worker_id: workerId, status, place, return_time: returnTime, note, from_agenda: fromAgenda, updated_at: new Date().toISOString() })
       });
+
+      // Escribir en historial para que aparezca en "Registro de hoy"
+      const workerName = WORKER_NAMES[workerId] || workerId;
+      await fetch(`${SB_URL}/rest/v1/team_history`, {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({
+          worker_id: workerId, worker_name: workerName,
+          status, place, return_time: returnTime, note,
+          edited_by: 'agenda'
+        })
+      });
+
     } catch(e) { console.warn('Error sincronizando estado:', e); }
   }
 
