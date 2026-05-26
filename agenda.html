@@ -394,7 +394,7 @@
       if (!triggersAbsent(ev)) return false;
       const [h, m] = ev.time.split(':').map(Number);
       const evMin  = h * 60 + m;
-      const duration = ev.duration || 120;
+      const duration = ev.duration || 60;
       // Marca ausente desde 30 min antes hasta el final estimado del evento
       return evMin - 30 <= nowMinutes && nowMinutes <= evMin + duration;
     });
@@ -408,10 +408,12 @@
       let status = 'oficina', place = '', returnTime = '', note = '', fromAgenda = false;
 
       if (active.length > 0) {
-        const ev = active[0];
-        status    = getStatusForEvent(ev);
-        note      = getNoteForEvent(ev);
-        returnTime = ev.time ? addMinutes(ev.time, ev.duration || 120) : '';
+        const ev  = active[0];
+        const dur = ev.duration || 60;
+        status     = getStatusForEvent(ev);
+        note       = getNoteForEvent(ev);
+        returnTime = ev.time ? addMinutes(ev.time, dur) : '';
+        place      = ev.time ? `${ev.time} → ~${returnTime}` : '';
         fromAgenda = true;
       } else {
         // Solo resetea si el estado actual venía de la agenda
