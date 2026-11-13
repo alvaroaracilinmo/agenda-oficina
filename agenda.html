@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <link rel="icon" type="image/x-icon" href="imgs/favicon/favicon.ico?v=2">
+  <link rel="icon" type="image/x-icon" href="imgs/favicon/foto.ico">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b00000">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -461,6 +461,11 @@
     });
   }
 
+  // Escapa texto que viene de la base de datos o de Google Calendar antes de meterlo en HTML.
+  function esc(v) {
+    return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
   function offset(days) {
     const d = new Date(today);
     d.setDate(d.getDate() + days);
@@ -630,14 +635,14 @@
             <div class="event-check ${ev.done ? 'done' : ''}" aria-label="${ev.done ? 'Marcar pendiente' : 'Marcar completado'}">
               <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
-            <div class="event-color-bar" style="background:${TYPE_COLORS[ev.type]}"></div>
+            <div class="event-color-bar" style="background:${esc(TYPE_COLORS[ev.type])}"></div>
             <div class="event-body">
-              <div class="event-title ${ev.done ? 'done-text' : ''}">${ev.title}</div>
+              <div class="event-title ${ev.done ? 'done-text' : ''}">${esc(ev.title)}</div>
               <div class="event-meta">
-                ${ev.time ? `<span class="event-meta-time"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${ev.time}${ev.duration ? ' – ' + addMinutes(ev.time, ev.duration) : ''}</span>` : ''}
-                <span class="event-badge badge-${ev.type}">${TYPE_LABELS[ev.type]}</span>
-                ${isAdmin && ev.worker_id ? `<span style="font-size:11px;font-weight:500;color:var(--accent)">👤 ${workerNames[ev.worker_id] || ev.worker_id}</span>` : ''}
-                ${ev.notes ? `<span class="event-notes-preview">${ev.notes}</span>` : ''}
+                ${ev.time ? `<span class="event-meta-time"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${esc(ev.time)}${ev.duration ? ' – ' + esc(addMinutes(ev.time, ev.duration)) : ''}</span>` : ''}
+                <span class="event-badge badge-${esc(ev.type)}">${esc(TYPE_LABELS[ev.type] || ev.type)}</span>
+                ${isAdmin && ev.worker_id ? `<span style="font-size:11px;font-weight:500;color:var(--accent)">👤 ${esc(workerNames[ev.worker_id] || ev.worker_id)}</span>` : ''}
+                ${ev.notes ? `<span class="event-notes-preview">${esc(ev.notes)}</span>` : ''}
               </div>
             </div>
             <div class="event-priority ${prioClass}" title="Prioridad ${ev.priority}"></div>

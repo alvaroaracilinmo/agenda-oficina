@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<link rel="icon" type="image/x-icon" href="imgs/favicon/favicon.ico?v=2">
+<link rel="icon" type="image/x-icon" href="imgs/favicon/foto.ico">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#b00000">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -70,13 +70,16 @@
 
   <div class="content">
     <div class="my-card">
-      <div class="my-card-label">Mi estado</div>
-      <div class="my-status-row">
-        <div class="badge" id="myBadge"><div class="dot"></div><span id="myStatusText">En oficina</span></div>
+      <div class="my-card-label" id="quickStatusLabel">¿Dónde estás?</div>
+      <div class="quick-status" role="group" aria-labelledby="quickStatusLabel">
+        <button type="button" class="qs-btn s-oficina" data-val="oficina" aria-pressed="false" onclick="quickSetStatus('oficina')"><span class="dot"></span>En oficina</button>
+        <button type="button" class="qs-btn s-visita"  data-val="visita"  aria-pressed="false" onclick="quickSetStatus('visita')"><span class="dot"></span>En visita</button>
+        <button type="button" class="qs-btn s-camino"  data-val="camino"  aria-pressed="false" onclick="quickSetStatus('camino')"><span class="dot"></span>De camino</button>
+        <button type="button" class="qs-btn s-ausente" data-val="ausente" aria-pressed="false" onclick="quickSetStatus('ausente')"><span class="dot"></span>Ausente</button>
       </div>
       <div class="my-detail" id="myDetail"></div>
-      <button class="update-btn" onclick="openForm(null)">Actualizar mi estado</button>
-      <button class="update-btn green" id="btnBack" onclick="quickBack()" style="display:none;margin-top:8px">Ya llegué a la oficina</button>
+      <div class="qs-msg" id="myStatusMsg" role="status" aria-live="polite"></div>
+      <button type="button" class="qs-link" id="btnAddDetails" onclick="openForm(null)" hidden>Añadir lugar u hora</button>
     </div>
 
     <div class="summary" id="summaryRow"></div>
@@ -228,7 +231,7 @@ async function syncLoad() {
 
 async function syncSave(workerId, statusData) {
   try {
-    await fetch(`${SB_URL}/rest/v1/team_status`, {
+    const res = await fetch(`${SB_URL}/rest/v1/team_status`, {
       method: 'POST',
       headers: { ...sbHeaders(), 'Prefer': 'resolution=merge-duplicates' },
       body: JSON.stringify({
@@ -241,8 +244,10 @@ async function syncSave(workerId, statusData) {
         updated_at: new Date().toISOString()
       })
     });
+    if (!res.ok) { console.warn('Error guardando estado: HTTP', res.status); return false; }
     try { new BroadcastChannel('agenda').postMessage('refresh'); } catch(e) {}
-  } catch(e) { console.warn('Error guardando estado:', e); }
+    return true;
+  } catch(e) { console.warn('Error guardando estado:', e); return false; }
 }
 
 async function saveHistory(entry) {
@@ -292,6 +297,11 @@ let selectedStatus = 'oficina';
 let editingWorkerId = null;
 
 function initials(n){ return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+
+// Escapa texto que viene de la base de datos antes de meterlo en HTML.
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
 // ---------- LOGIN ----------
 function renderLogin() {
@@ -395,10 +405,10 @@ function renderSlot(workerId, index, slot) {
   return `
     <div id="slot-${workerId}-${index}" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;padding:8px;background:var(--surface);border-radius:6px;border:0.5px solid var(--border);">
       <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1;">${daysHtml}</div>
-      <input type="time" value="${slot.start}" onchange="updateSlotTime('${workerId}',${index},'start',this.value)"
+      <input type="time" value="${esc(slot.start)}" onchange="updateSlotTime('${workerId}',${index},'start',this.value)"
         style="padding:4px 6px;border-radius:6px;border:0.5px solid var(--border-md);font-size:12px;background:var(--bg);color:var(--text);">
       <span style="font-size:12px;color:var(--text-secondary);">a</span>
-      <input type="time" value="${slot.end}" onchange="updateSlotTime('${workerId}',${index},'end',this.value)"
+      <input type="time" value="${esc(slot.end)}" onchange="updateSlotTime('${workerId}',${index},'end',this.value)"
         style="padding:4px 6px;border-radius:6px;border:0.5px solid var(--border-md);font-size:12px;background:var(--bg);color:var(--text);">
       <button onclick="removeSlot('${workerId}',${index})" style="padding:3px 8px;border-radius:6px;border:0.5px solid rgba(176,0,0,0.3);background:none;color:#b00000;font-size:11px;cursor:pointer;">✕</button>
     </div>
@@ -471,6 +481,9 @@ function deleteCookie(name) {
 async function login(id) {
   currentUser = WORKERS.find(w => w.id === id);
   isAdmin = false;
+  const msg = document.getElementById('myStatusMsg');
+  msg.textContent = '';
+  msg.classList.remove('error');
   localStorage.setItem('agendaUser', id);
   setCookie('agendaUser', id, 30);
   showScreen('appScreen');
@@ -592,18 +605,70 @@ async function loadData() {
 // ---------- RENDER TRABAJADOR ----------
 function renderApp() {
   const me = teamState[currentUser.id] || {status:'oficina'};
-  const badge = document.getElementById('myBadge');
-  badge.className = 'badge ' + STATUS_BADGE[me.status];
-  document.getElementById('myStatusText').textContent = STATUS_LABELS[me.status];
-  let det = '';
-  if (me.place) det += `Lugar: <span>${me.place}</span><br>`;
-  if (me.returnTime) det += `Regresa: <span>${me.returnTime}</span><br>`;
-  if (me.note) det += `<span>${me.note}</span>`;
-  document.getElementById('myDetail').innerHTML = det;
-  document.getElementById('btnBack').style.display = (me.status !== 'oficina' && me.status !== 'reunido') ? 'block' : 'none';
+  renderQuickStatus(me);
   renderSummary('summaryRow');
   document.getElementById('teamGrid').innerHTML = WORKERS.filter(w => w.id !== currentUser.id).map(w => workerCard(w, false)).join('');
   renderHistory('historyList');
+}
+
+function renderQuickStatus(me) {
+  document.querySelectorAll('.qs-btn').forEach(b => {
+    const on = b.dataset.val === me.status;
+    b.classList.toggle('sel', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  const det = document.getElementById('myDetail');
+  det.replaceChildren();
+  const addLine = (label, value) => {
+    const line = document.createElement('div');
+    if (label) line.append(label + ' ');
+    const v = document.createElement('span');
+    v.textContent = value;
+    line.append(v);
+    det.append(line);
+  };
+  if (me.status === 'reunido') addLine('Ahora:', STATUS_LABELS.reunido);
+  if (me.place) addLine(me.fromAgenda ? 'Horario:' : 'Lugar:', me.place);
+  if (me.returnTime && !me.fromAgenda) addLine('Regresa:', me.returnTime);
+  if (me.note) addLine('', me.note);
+  document.getElementById('btnAddDetails').hidden = quickSaving || me.status === 'oficina' || me.status === 'reunido';
+}
+
+// Cambia el estado del trabajador con un solo toque y lo guarda al momento.
+let quickSaving = false;
+
+async function quickSetStatus(val) {
+  if (quickSaving || !currentUser) return;
+  const wid = currentUser.id;
+  const prev = teamState[wid] || {status:'oficina'};
+  if (prev.status === val) return;
+
+  const msg = document.getElementById('myStatusMsg');
+  const btns = document.querySelectorAll('.qs-btn');
+  const statusData = {status: val, place:'', returnTime:'', note:'', fromAgenda:false, ts: Date.now()};
+
+  quickSaving = true;
+  teamState[wid] = statusData;
+  renderQuickStatus(statusData);
+  btns.forEach(b => { b.disabled = true; });
+  msg.classList.remove('error');
+  msg.textContent = 'Guardando…';
+
+  const ok = await syncSave(wid, statusData);
+  if (ok) {
+    const note = val === 'oficina' ? (prev.place ? `Regresó de ${prev.place}` : 'Regresó a la oficina') : '';
+    await saveHistory({ workerId: wid, who: currentUser.name, status: val, place: '', returnTime: '', note });
+    await loadHistory();
+    msg.textContent = 'Guardado a las ' + new Date().toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'});
+  } else {
+    teamState[wid] = prev;
+    msg.classList.add('error');
+    msg.textContent = 'No se ha podido guardar. Inténtalo de nuevo.';
+  }
+
+  quickSaving = false;
+  btns.forEach(b => { b.disabled = false; });
+  renderApp();
 }
 
 // ---------- RENDER ADMIN ----------
@@ -624,10 +689,10 @@ function workerCard(w, adminMode) {
       </div>
       <div class="badge ${STATUS_BADGE[ws.status]}" style="font-size:12px;padding:4px 10px;margin-bottom:6px"><div class="dot"></div>${STATUS_LABELS[ws.status]}</div>
       <div class="t-info">
-        ${ws.place ? `<div>${ws.fromAgenda ? 'Horario:' : 'Lugar:'} <span>${ws.place}</span></div>` : ''}
-        ${!ws.fromAgenda && ws.returnTime ? `<div>Regresa: <span>${ws.returnTime}</span></div>` : ''}
+        ${ws.place ? `<div>${ws.fromAgenda ? 'Horario:' : 'Lugar:'} <span>${esc(ws.place)}</span></div>` : ''}
+        ${!ws.fromAgenda && ws.returnTime ? `<div>Regresa: <span>${esc(ws.returnTime)}</span></div>` : ''}
       </div>
-      ${ws.note ? `<div class="t-note">${ws.fromAgenda ? '📅 ' : ''}${ws.note}</div>` : ''}
+      ${ws.note ? `<div class="t-note">${ws.fromAgenda ? '📅 ' : ''}${esc(ws.note)}</div>` : ''}
       ${adminMode && ws.status !== 'oficina' && ws.status !== 'reunido' ? `<button class="btn-quick-back" onclick="adminQuickBack('${w.id}')">Marcar en oficina</button>` : ''}
     </div>
   `;
@@ -651,8 +716,8 @@ function renderHistory(elId) {
     <div class="hist-item">
       <div class="hist-time">${h.time}</div>
       <div class="hist-body">
-        <div class="hist-who">${h.who}${h.editedBy ? ' <span class="hist-admin-tag">Admin</span>' : ''} — ${STATUS_LABELS[h.status]||h.status}</div>
-        <div class="hist-detail">${[h.place, h.returnTime?'Regresa: '+h.returnTime:'', h.note].filter(Boolean).join(' · ')}</div>
+        <div class="hist-who">${esc(h.who)}${h.editedBy ? ' <span class="hist-admin-tag">Admin</span>' : ''} — ${esc(STATUS_LABELS[h.status]||h.status)}</div>
+        <div class="hist-detail">${esc([h.place, h.returnTime?'Regresa: '+h.returnTime:'', h.note].filter(Boolean).join(' · '))}</div>
       </div>
     </div>
   `).join('');
@@ -728,18 +793,6 @@ async function saveStatus() {
   if (isAdmin) renderAdmin(); else renderApp();
   const el = document.getElementById(isAdmin ? 'adminLastUpdated' : 'lastUpdated');
   if (el) el.textContent = 'Actualizado: ' + now;
-}
-
-async function quickBack() {
-  const prev = (teamState[currentUser.id]||{}).place;
-  const statusData = {status:'oficina', place:'', returnTime:'', note:'', fromAgenda:false, ts: Date.now()};
-  teamState[currentUser.id] = statusData;
-  const now = new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-  const note = prev ? `Regresó de ${prev}` : 'Regresó a la oficina';
-  await syncSave(currentUser.id, statusData);
-  await saveHistory({ workerId: currentUser.id, who: currentUser.name, status: 'oficina', place: '', returnTime: '', note });
-  await loadHistory();
-  renderApp();
 }
 
 async function adminQuickBack(wid) {
