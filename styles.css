@@ -20,7 +20,7 @@
   /* Estados — colores intuitivos */
   --green-bg:  #eaf5e4; --green-text: #2a6020; --green-dot: #5a9e40;
   --amber-bg:  #fff0e0; --amber-text: #8b4000; --amber-dot: #e07820;
-  --blue-bg:   #fdeaea; --blue-text:  #7a0000; --blue-dot:  #c03030;
+  --blue-bg:   #e6f1fb; --blue-text:  #0c447c; --blue-dot:  #378add;
   --gray-bg:   #f2ede8; --gray-text:  #5a4e38; --gray-dot:  #9a8060;
   --red-bg:    #fdeaea; --red-text:   #7a0000; --red-dot:   #b00000;
 }
@@ -643,10 +643,198 @@ body {
   cursor: wait;
 }
 
-.qs-btn.s-oficina .dot { background: var(--green-dot); }
-.qs-btn.s-visita  .dot { background: var(--amber-dot); }
-.qs-btn.s-camino  .dot { background: var(--blue-dot); }
-.qs-btn.s-ausente .dot { background: var(--gray-dot); }
+.qs-ico {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.qs-btn.s-oficina .qs-ico { color: var(--green-dot); }
+.qs-btn.s-visita  .qs-ico { color: var(--amber-dot); }
+.qs-btn.s-camino  .qs-ico { color: var(--blue-dot); }
+.qs-btn.s-ausente .qs-ico { color: var(--gray-dot); }
+.qs-btn.sel .qs-ico       { color: currentColor; }
+
+/* ===========================
+   Cabecera del trabajador (saludo)
+   =========================== */
+.hello-row {
+  max-width: 680px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hello-text { min-width: 0; }
+
+.hello-name {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hello-role {
+  color: rgba(255,255,255,0.7);
+  font-size: 12px;
+}
+
+.hello-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: rgba(255,255,255,0.14);
+  color: #fff;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.icon-btn:hover { background: rgba(255,255,255,0.24); }
+
+.icon-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-btn:focus-visible,
+.hello-logout:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.hello-logout {
+  height: 40px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: rgba(255,255,255,0.8);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.hello-logout:hover { background: rgba(255,255,255,0.14); color: #fff; }
+
+/* ===========================
+   Lista compacta del equipo
+   =========================== */
+.team-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 20px 0 6px;
+}
+
+.team-head .section-label { margin-bottom: 0; }
+
+.team-refresh {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.team-refresh .last-updated { margin: 0; }
+
+.icon-btn.small {
+  width: 32px;
+  height: 32px;
+  background: none;
+  color: var(--text-hint);
+}
+
+.icon-btn.small:hover { background: var(--accent-light); color: var(--accent); }
+.icon-btn.small:focus-visible { outline-color: var(--accent); }
+.icon-btn.small svg { width: 16px; height: 16px; }
+
+.team-list {
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 14px;
+  margin-bottom: 20px;
+}
+
+.tm-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 0.5px solid var(--border);
+}
+
+.tm-row:first-child { border-top: none; }
+
+.tm-av {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.tm-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.tm-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.tm-sub {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tm-chip {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+}
+
+.st-oficina { background: var(--green-bg); color: var(--green-text); }
+.st-visita  { background: var(--amber-bg); color: var(--amber-text); }
+.st-camino  { background: var(--blue-bg);  color: var(--blue-text); }
+.st-ausente { background: var(--gray-bg);  color: var(--gray-text); }
+.st-reunido { background: var(--red-bg);   color: var(--red-text); }
 
 .my-card .my-detail:not(:empty) {
   margin-top: 12px;

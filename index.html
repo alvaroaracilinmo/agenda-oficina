@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="imgs/favicon/favicon-192x192.png">
 <title>A&A Aracil Agenda- Home</title>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=20261113-2">
 
 </head>
 <body>
@@ -52,18 +52,14 @@
 <!-- APP TRABAJADOR -->
 <div id="appScreen">
   <div class="top-bar">
-    <div class="top-row">
-      <div class="top-left">
-        <div class="top-av" id="topAv"></div>
-        <div>
-          <div class="top-name" id="topName"></div>
-          <div class="top-role" id="topRole"></div>
-        </div>
+    <div class="hello-row">
+      <div class="hello-text">
+        <div class="hello-name" id="topName"></div>
+        <div class="hello-role" id="topRole"></div>
       </div>
-      <img class="top-logo" src="imgs/logotipo-aracil-Transparente.png" alt="Aracil Inmobiliaria" style="filter:brightness(0) invert(1);opacity:0.9;">
-      <div class="top-actions">
-        <a href="agenda.html" class="btn-agenda">📅 Mi agenda</a>
-        <button class="btn-logout" onclick="logout()">Cambiar</button>
+      <div class="hello-actions">
+        <a href="agenda.html" class="icon-btn" aria-label="Mi agenda" title="Mi agenda"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M16 3v4"/><path d="M8 3v4"/><path d="M4 11h16"/></svg></a>
+        <button type="button" class="hello-logout" onclick="logout()">Cambiar</button>
       </div>
     </div>
   </div>
@@ -72,22 +68,24 @@
     <div class="my-card">
       <div class="my-card-label" id="quickStatusLabel">¿Dónde estás?</div>
       <div class="quick-status" role="group" aria-labelledby="quickStatusLabel">
-        <button type="button" class="qs-btn s-oficina" data-val="oficina" aria-pressed="false" onclick="quickSetStatus('oficina')"><span class="dot"></span>En oficina</button>
-        <button type="button" class="qs-btn s-visita"  data-val="visita"  aria-pressed="false" onclick="quickSetStatus('visita')"><span class="dot"></span>En visita</button>
-        <button type="button" class="qs-btn s-camino"  data-val="camino"  aria-pressed="false" onclick="quickSetStatus('camino')"><span class="dot"></span>De camino</button>
-        <button type="button" class="qs-btn s-ausente" data-val="ausente" aria-pressed="false" onclick="quickSetStatus('ausente')"><span class="dot"></span>Ausente</button>
+        <button type="button" class="qs-btn s-oficina" data-val="oficina" aria-pressed="false" onclick="quickSetStatus('oficina')"><svg class="qs-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M9 16h1"/><path d="M14 8h1"/><path d="M14 12h1"/><path d="M14 16h1"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/></svg>En oficina</button>
+        <button type="button" class="qs-btn s-visita"  data-val="visita"  aria-pressed="false" onclick="quickSetStatus('visita')"><svg class="qs-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12H3l9-9 9 9h-2"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path d="M9 21v-6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6"/></svg>En visita</button>
+        <button type="button" class="qs-btn s-camino"  data-val="camino"  aria-pressed="false" onclick="quickSetStatus('camino')"><svg class="qs-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M5 17H3v-6l2-5h9l4 5h1a2 2 0 0 1 2 2v4h-2m-4 0H9m-6-6h15m-6 0V6"/></svg>De camino</button>
+        <button type="button" class="qs-btn s-ausente" data-val="ausente" aria-pressed="false" onclick="quickSetStatus('ausente')"><svg class="qs-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3h.393a7.5 7.5 0 0 0 7.92 12.446A9 9 0 1 1 12 3z"/></svg>Ausente</button>
       </div>
       <div class="my-detail" id="myDetail"></div>
       <div class="qs-msg" id="myStatusMsg" role="status" aria-live="polite"></div>
       <button type="button" class="qs-link" id="btnAddDetails" onclick="openForm(null)" hidden>Añadir lugar u hora</button>
     </div>
 
-    <div class="summary" id="summaryRow"></div>
-    <div class="refresh-row"><button class="btn-refresh" onclick="loadData()">Actualizar</button></div>
-    <div class="last-updated" id="lastUpdated"></div>
-
-    <div class="section-label">Compañeros</div>
-    <div class="team-grid" id="teamGrid"></div>
+    <div class="team-head">
+      <div class="section-label" id="teamCount">Equipo</div>
+      <div class="team-refresh">
+        <span class="last-updated" id="lastUpdated"></span>
+        <button type="button" class="icon-btn small" onclick="loadData()" aria-label="Actualizar" title="Actualizar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0-15.5-2m-.5-4v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></svg></button>
+      </div>
+    </div>
+    <div class="team-list" id="teamGrid"></div>
 
     <div class="section-label">Registro de hoy</div>
     <div id="historyList"></div>
@@ -524,10 +522,7 @@ function showScreen(id) {
 
 function renderTopBar() {
   const w = currentUser;
-  const av = document.getElementById('topAv');
-  av.style.cssText = `background:${w.color};color:${w.text};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0`;
-  av.textContent = initials(w.name);
-  document.getElementById('topName').textContent = w.name;
+  document.getElementById('topName').textContent = 'Hola, ' + w.name.split(' ')[0];
   document.getElementById('topRole').textContent = w.role;
 }
 
@@ -606,8 +601,7 @@ async function loadData() {
 function renderApp() {
   const me = teamState[currentUser.id] || {status:'oficina'};
   renderQuickStatus(me);
-  renderSummary('summaryRow');
-  document.getElementById('teamGrid').innerHTML = WORKERS.filter(w => w.id !== currentUser.id).map(w => workerCard(w, false)).join('');
+  renderTeamList();
   renderHistory('historyList');
 }
 
@@ -669,6 +663,37 @@ async function quickSetStatus(val) {
   quickSaving = false;
   btns.forEach(b => { b.disabled = false; });
   renderApp();
+}
+
+const STATUS_SHORT = {oficina:'Oficina', visita:'Visita', camino:'De camino', ausente:'Ausente', reunido:'Reunión'};
+const STATUS_ORDER = {visita:0, camino:1, reunido:2, ausente:3, oficina:4};
+
+// Lista compacta de compañeros: primero los que están fuera.
+function renderTeamList() {
+  const statusOf = w => (teamState[w.id] || {}).status || 'oficina';
+  const inOffice = WORKERS.filter(w => ['oficina', 'reunido'].includes(statusOf(w))).length;
+  document.getElementById('teamCount').textContent = `Equipo · ${inOffice} de ${WORKERS.length} en oficina`;
+
+  const rows = WORKERS.filter(w => w.id !== currentUser.id)
+    .map(w => ({ w, ws: teamState[w.id] || {status:'oficina'} }))
+    .sort((a, b) => (STATUS_ORDER[a.ws.status] ?? 9) - (STATUS_ORDER[b.ws.status] ?? 9));
+
+  document.getElementById('teamGrid').innerHTML = rows.map(({ w, ws }) => {
+    const st = STATUS_SHORT[ws.status] ? ws.status : 'oficina';
+    const parts = ws.fromAgenda
+      ? [ws.note, ws.place]
+      : [ws.place, ws.returnTime ? (st === 'camino' ? 'llega ' : 'vuelve ') + ws.returnTime : '', ws.note];
+    const sub = parts.filter(Boolean).join(' · ');
+    return `
+      <div class="tm-row">
+        <div class="tm-av st-${st}">${esc(initials(w.name))}</div>
+        <div class="tm-body">
+          <div class="tm-name">${esc(w.name)}</div>
+          ${sub ? `<div class="tm-sub">${esc(sub)}</div>` : ''}
+        </div>
+        <span class="tm-chip st-${st}">${STATUS_SHORT[st]}</span>
+      </div>`;
+  }).join('');
 }
 
 // ---------- RENDER ADMIN ----------
